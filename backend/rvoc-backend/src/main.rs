@@ -4,9 +4,11 @@ use simplelog::{ColorChoice, Config, TermLogger, TerminalMode};
 use std::time::Duration;
 use tokio::runtime::Builder;
 use wither::mongodb::Client;
+use crate::data_model::sync_model;
 use crate::error::RVocResult;
 
 mod error;
+mod data_model;
 
 fn init_logging() {
     TermLogger::init(
@@ -74,6 +76,7 @@ async fn run_rvoc_backend(configuration: Configuration) -> RVocResult<()> {
         .await?
         .database(&configuration.mongodb_database);
     info!("Connection established successfully");
+    sync_model(&database).await?;
 
     Ok(())
 }
