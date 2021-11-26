@@ -1,14 +1,15 @@
+use crate::api_server::run_api_server;
+use crate::database::connect_to_database;
+use crate::error::RVocResult;
 use clap::Parser;
 use log::{info, LevelFilter};
 use simplelog::{ColorChoice, Config, TermLogger, TerminalMode};
 use std::time::Duration;
 use tokio::runtime::Builder;
-use wither::mongodb::Client;
-use crate::data_model::sync_model;
-use crate::error::RVocResult;
 
+mod api_server;
+mod database;
 mod error;
-mod data_model;
 
 fn init_logging() {
     TermLogger::init(
@@ -23,7 +24,7 @@ fn init_logging() {
 
 #[derive(Parser, Clone)]
 #[clap(version = "0.1.0", author = "Sebastian Schmidt <isibboi@gmail.com>")]
-struct Configuration {
+pub struct Configuration {
     #[clap(default_value = "1")]
     tokio_worker_threads: usize,
 
@@ -33,8 +34,14 @@ struct Configuration {
     )]
     tokio_shutdown_timeout: u64,
 
-    #[clap(default_value = "mongodb://localhost:27017")]
+    #[clap(default_value = "mongodb://root:test@localhost:27017")]
     mongodb_uri: String,
+
+    #[clap(default_value = "localhost")]
+    mongodb_host: String,
+
+    #[clap(default_value = "27017")]
+    mongodb_port: u16,
 
     #[clap(default_value = "root")]
     mongodb_user: String,
@@ -44,6 +51,12 @@ struct Configuration {
 
     #[clap(default_value = "rvoc")]
     mongodb_database: String,
+
+    #[clap(default_value = "0.0.0.0")]
+    api_listen_address: String,
+
+    #[clap(default_value = "2374")]
+    api_listen_port: u16,
 }
 
 fn main() {
@@ -61,7 +74,9 @@ fn main() {
     info!("Built tokio runtime");
     info!("Entering tokio runtime...");
     runtime.block_on(async {
-        run_rvoc_backend(configuration.clone()).await.unwrap_or_else(|e| panic!("Application error: {:?}", e));
+        run_rvoc_backend(&configuration)
+            .await
+            .unwrap_or_else(|e| panic!("Application error: {:?}", e));
     });
     info!("Tokio runtime returned, shutting down...");
     runtime.shutdown_timeout(Duration::from_secs(configuration.tokio_shutdown_timeout));
@@ -70,13 +85,7 @@ fn main() {
     info!("Terminated");
 }
 
-async fn run_rvoc_backend(configuration: Configuration) -> RVocResult<()> {
-    info!("Connecting to mongodb database '{}' at '{}'...", configuration.mongodb_database, configuration.mongodb_uri);
-    let database = Client::with_uri_str(&configuration.mongodb_uri)
-        .await?
-        .database(&configuration.mongodb_database);
-    info!("Connection established successfully");
-    sync_model(&database).await?;
-
-    Ok(())
+async fn run_rvoc_backend(configuration: &Configuration) -> RVocResult<()> {
+    let database = connect_to_database(configuration).await?;
+    run_api_server(configuration, database).await
 }
