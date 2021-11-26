@@ -13,7 +13,7 @@ mod error;
 
 fn init_logging() {
     TermLogger::init(
-        LevelFilter::Trace,
+        LevelFilter::Debug,
         Config::default(),
         TerminalMode::Stdout,
         ColorChoice::Auto,

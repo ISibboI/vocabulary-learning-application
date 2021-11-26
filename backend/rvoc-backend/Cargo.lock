@@ -1155,6 +1155,7 @@ name = "rvoc-backend"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "futures",
  "log",
  "serde",
  "simplelog",

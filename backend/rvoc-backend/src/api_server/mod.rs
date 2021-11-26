@@ -1,17 +1,39 @@
-use crate::error::RVocResult;
+use crate::database::model::Language;
+use crate::error::{RVocError, RVocResult};
 use crate::Configuration;
+use futures::StreamExt;
+use futures::TryStreamExt;
 use serde::{Deserialize, Serialize};
+use std::convert::Infallible;
 use std::net::Ipv4Addr;
 use std::str::FromStr;
-use warp::{Filter, Rejection, Reply};
+use warp::{Filter, Reply};
 use wither::mongodb::Database;
+use wither::Model;
 
 #[derive(Deserialize, Serialize)]
-pub enum ApiCommand {}
+#[serde(tag = "command", rename_all = "snake_case")]
+pub enum ApiCommand {
+    AddLanguage { name: String },
+
+    ListLanguages {
+        limit: usize
+    },
+}
 
 #[derive(Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub struct ApiResponse {
     error: Option<String>,
+    #[serde(flatten)]
+    data: ApiResponseData,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(tag = "response_type", content = "data", rename_all = "snake_case")]
+pub enum ApiResponseData {
+    None,
+    ListLanguages(Vec<Language>),
 }
 
 pub async fn run_api_server(configuration: &Configuration, database: Database) -> RVocResult<()> {
@@ -32,19 +54,49 @@ pub async fn run_api_server(configuration: &Configuration, database: Database) -
 }
 
 impl ApiCommand {
-    pub async fn execute_consume(self, database: Database) -> Result<impl Reply, Rejection> {
-        self.execute(&database)
+    pub async fn execute_consume(self, database: Database) -> Result<impl Reply, Infallible> {
+        Ok(self
+            .execute_internal(database)
             .await
             .map(|api_response| warp::reply::json(&api_response))
+            .unwrap_or_else(|error| warp::reply::json(&ApiResponse::error(error))))
     }
 
-    pub async fn execute(&self, database: &Database) -> Result<ApiResponse, Rejection> {
-        Ok(ApiResponse::ok())
+    async fn execute_internal(self, database: Database) -> RVocResult<ApiResponse> {
+        match self {
+            ApiCommand::AddLanguage { name } => {
+                let mut language = Language { id: None, name };
+                language.save(&database, None).await?;
+
+                Ok(ApiResponse::ok())
+            }
+            ApiCommand::ListLanguages { limit } => {
+                let limit = limit.clamp(0, 10_000);
+                let language_cursor = Language::find(&database, None, None).await?;
+                Ok(ApiResponse::ok_with_data(ApiResponseData::ListLanguages(
+                    language_cursor.take(limit).try_collect().await?,
+                )))
+            }
+        }
     }
 }
 
 impl ApiResponse {
     pub fn ok() -> Self {
-        Self { error: None }
+        Self {
+            error: None,
+            data: ApiResponseData::None,
+        }
+    }
+
+    pub fn ok_with_data(data: ApiResponseData) -> Self {
+        Self { error: None, data }
+    }
+
+    pub fn error(error: RVocError) -> Self {
+        Self {
+            error: Some(format!("{:?}", error)),
+            data: ApiResponseData::None,
+        }
     }
 }
