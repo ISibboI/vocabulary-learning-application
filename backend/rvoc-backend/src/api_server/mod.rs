@@ -1,6 +1,6 @@
+use crate::configuration::Configuration;
 use crate::database::model::Language;
 use crate::error::{RVocError, RVocResult};
-use crate::Configuration;
 use futures::StreamExt;
 use futures::TryStreamExt;
 use serde::{Deserialize, Serialize};
@@ -16,9 +16,7 @@ use wither::Model;
 pub enum ApiCommand {
     AddLanguage { name: String },
 
-    ListLanguages {
-        limit: usize
-    },
+    ListLanguages { limit: usize },
 }
 
 #[derive(Deserialize, Serialize)]

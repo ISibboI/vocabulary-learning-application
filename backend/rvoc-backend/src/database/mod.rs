@@ -1,6 +1,6 @@
+use crate::configuration::Configuration;
 use crate::database::model::sync_model;
 use crate::error::RVocResult;
-use crate::Configuration;
 use log::info;
 use wither::mongodb::options::{ClientOptions, Credential, ServerAddress};
 use wither::mongodb::{Client, Database};
