@@ -1,9 +1,10 @@
+use crate::database::model::vocabulary::{Language, Word};
 use crate::RVocResult;
 use log::info;
 use wither::mongodb::Database;
 use wither::Model;
-use crate::database::model::vocabulary::{Language, Word};
 
+pub mod users;
 pub mod vocabulary;
 
 pub async fn sync_model(database: &Database) -> RVocResult<()> {
