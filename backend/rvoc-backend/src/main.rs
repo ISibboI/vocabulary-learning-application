@@ -1,3 +1,5 @@
+#![deny(warnings)]
+
 use crate::api_server::run_api_server;
 use crate::configuration::{parse_configuration, Configuration};
 use crate::database::connect_to_database;
