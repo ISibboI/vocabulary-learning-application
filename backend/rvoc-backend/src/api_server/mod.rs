@@ -1,5 +1,5 @@
 use crate::configuration::Configuration;
-use crate::database::model::Language;
+use crate::database::model::vocabulary::Language;
 use crate::error::{RVocError, RVocResult};
 use futures::StreamExt;
 use futures::TryStreamExt;

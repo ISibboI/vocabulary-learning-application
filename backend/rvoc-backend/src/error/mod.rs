@@ -12,10 +12,14 @@ pub enum RVocError {
     AddrParseError(AddrParseError),
     IoError(std::io::Error),
     TomlDeserializeError(toml::de::Error),
+    PasswordHashError(password_hash::Error),
 
     // Custom errors
-    /// A config file was given, but the file extension is not supported
+    /// A config file was given, but the file extension is not supported.
     UnsupportedConfigFileExtension(PathBuf),
+
+    /// A password passed to the application was too long.
+    PasswordTooLong,
 }
 
 impl From<WitherError> for RVocError {
@@ -45,5 +49,11 @@ impl From<std::io::Error> for RVocError {
 impl From<toml::de::Error> for RVocError {
     fn from(error: toml::de::Error) -> Self {
         Self::TomlDeserializeError(error)
+    }
+}
+
+impl From<password_hash::Error> for RVocError {
+    fn from(error: password_hash::Error) -> Self {
+        Self::PasswordHashError(error)
     }
 }
