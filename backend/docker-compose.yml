@@ -8,3 +8,10 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: test
+  dev-rvoc:
+    depends_on:
+      - "dev-db"
+    build: "rvoc-backend"
+    restart: "no"
+    ports:
+      - "127.0.0.1:2374:2374"
