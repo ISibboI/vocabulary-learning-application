@@ -74,7 +74,7 @@ mod tests {
     fn test_password_check() {
         let password = "abc123";
         let hashed_password = HashedPassword::new(password).unwrap();
-        assert!(hashed_password.check(password));
-        assert!(!hashed_password.check("wrong password"));
+        assert!(hashed_password.check(password).unwrap());
+        assert!(!hashed_password.check("wrong password").unwrap());
     }
 }
