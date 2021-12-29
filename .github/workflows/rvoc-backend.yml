@@ -15,24 +15,25 @@ jobs:
           - name: Check
             command: check
             args: --all-features --all --all-targets
-            components: ""
           - name: Test
             command: test
             args: --all-features
-            components: ""
         include:
           - toolchain: stable
             command:
               name: Format
               command: fmt
               args: -- --check
-              components: rustfmt
           - toolchain: stable
             command:
               name: Lint
               command: clippy
               args: --all-features --tests --benches -- -D clippy::all
-              components: clippy
+          - toolchain: stable
+            command:
+              name: Doc
+              command: doc
+              args: --all-features --all
 
     steps:
       - uses: actions/checkout@v2
