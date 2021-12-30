@@ -5,7 +5,7 @@ use std::collections::hash_map::RandomState;
 use std::collections::HashSet;
 use std::str::FromStr;
 
-static URL: &'static str = "http://localhost:2374/command";
+static URL: &str = "http://localhost:2374/command";
 
 fn expect_error(json: &str, error: &str) {
     let client = Client::new();
