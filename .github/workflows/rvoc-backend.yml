@@ -17,7 +17,7 @@ jobs:
             args: --all-features --all --all-targets
           - name: Test
             command: test
-            args: --all-features
+            args: --all-features --bins
         include:
           - toolchain: stable
             command:
