@@ -12,6 +12,7 @@ services:
     depends_on:
       - "dev-db"
     build: "rvoc-backend"
+    command: -- --mongodb-host dev-db
     restart: "no"
     ports:
       - "127.0.0.1:2374:2374"

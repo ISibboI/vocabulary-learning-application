@@ -6,4 +6,4 @@ COPY Cargo.toml Cargo.lock /
 
 RUN cargo build --release
 
-CMD cargo run --release
+ENTRYPOINT ["cargo", "run", "--release"]
