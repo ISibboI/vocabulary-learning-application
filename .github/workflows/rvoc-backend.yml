@@ -115,7 +115,7 @@ jobs:
           submodules: true
 
       - name: Docker compose build and up
-        run: docker-compose up -d --build
+        run: docker-compose up -d --build -f backend/docker-compose.yml
 
       - name: Install toolchain
         uses: actions-rs/toolchain@v1
