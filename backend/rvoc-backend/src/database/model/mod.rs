@@ -1,5 +1,6 @@
 use crate::database::model::users::User;
 use crate::database::model::vocabulary::{Language, Word};
+use crate::error::RVocError;
 use crate::RVocResult;
 use log::info;
 use wither::mongodb::Database;
@@ -15,7 +16,9 @@ pub async fn sync_model(database: &Database) -> RVocResult<()> {
         Word::sync(database),
         User::sync(database),
     ] {
-        result.await?;
+        result
+            .await
+            .map_err(|error| RVocError::CouldNotSyncDatabaseModel(error))?;
     }
     info!("Synced database model successfully");
     Ok(())

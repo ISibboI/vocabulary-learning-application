@@ -45,6 +45,9 @@ pub struct Configuration {
     #[clap(long, default_value = "rvoc", conflicts_with = "config-file")]
     pub mongodb_database: String,
 
+    #[clap(long, default_value = "10", conflicts_with = "config-file")]
+    pub mongodb_connect_timeout: u64,
+
     #[clap(long, default_value = "0.0.0.0", conflicts_with = "config-file")]
     pub api_listen_address: String,
 
