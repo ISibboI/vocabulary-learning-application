@@ -1,7 +1,9 @@
 use crate::configuration::Configuration;
 use crate::database::model::sync_model;
-use crate::error::RVocResult;
-use log::info;
+use crate::error::{RVocError, RVocResult};
+use log::{info, warn};
+use std::time::Duration;
+use wither::bson::doc;
 use wither::mongodb::options::{ClientOptions, Credential, ServerAddress};
 use wither::mongodb::{Client, Database};
 
@@ -24,10 +26,18 @@ pub async fn connect_to_database(configuration: &Configuration) -> RVocResult<Da
                     .password(configuration.mongodb_password.clone())
                     .build(),
             )
+            .connect_timeout(Duration::from_secs(configuration.mongodb_connect_timeout))
             .build(),
-    )?;
+    )
+    .map_err(RVocError::CouldNotSetUpDatabaseClient)?;
     let database = client.database(&configuration.mongodb_database);
-    info!("Driver ready");
+
+    info!("Checking if database is available...");
+    while let Err(error) = database.run_command(doc! {"ping": 1}, None).await {
+        warn!("Waiting for database to become available: {:?}", error);
+    }
+    info!("Database available");
+
     sync_model(&database).await?;
 
     Ok(database)

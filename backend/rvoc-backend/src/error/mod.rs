@@ -20,6 +20,12 @@ pub enum RVocError {
 
     /// A password passed to the application was too long.
     PasswordTooLong,
+
+    /// Could not create the client type for the database.
+    CouldNotSetUpDatabaseClient(wither::mongodb::error::Error),
+
+    /// Could not sync the database model specified by the application with the database.
+    CouldNotSyncDatabaseModel(WitherError),
 }
 
 impl From<WitherError> for RVocError {
