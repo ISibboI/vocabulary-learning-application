@@ -94,7 +94,7 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@v1
         with:
-          key: ${{ runner.os }}
+          key: ${{ runner.os }}-optional
           working-directory: backend/rvoc-backend
 
       - name: ${{matrix.command.name}}
