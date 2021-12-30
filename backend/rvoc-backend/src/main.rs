@@ -4,7 +4,7 @@ use crate::api_server::run_api_server;
 use crate::configuration::{parse_configuration, Configuration};
 use crate::database::connect_to_database;
 use crate::error::RVocResult;
-use log::{info, LevelFilter};
+use log::{error, info, LevelFilter};
 use simplelog::{ColorChoice, Config, TermLogger, TerminalMode};
 use std::time::Duration;
 use tokio::runtime::Builder;
@@ -42,7 +42,7 @@ fn main() {
     runtime.block_on(async {
         run_rvoc_backend(&configuration)
             .await
-            .unwrap_or_else(|e| panic!("Application error: {:?}", e));
+            .unwrap_or_else(|e| error!("Application error: {:#?}", e));
     });
     info!("Tokio runtime returned, shutting down...");
     runtime.shutdown_timeout(Duration::from_secs(configuration.tokio_shutdown_timeout));
