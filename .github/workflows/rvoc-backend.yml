@@ -60,3 +60,37 @@ jobs:
         with:
           command: ${{matrix.command.command}}
           args: --manifest-path backend/rvoc-backend/Cargo.toml ${{matrix.command.args}}
+
+  end_to_end:
+    name: end_to_end
+    needs:
+      - build_test_format_lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - name: Docker compose build and up
+        run: docker-compose up -d --build
+
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+          default: true
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v1
+        with:
+          key: ${{ runner.os }}-end_to_end
+          working-directory: backend/rvoc-backend
+
+      - name: End to end tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --manifest-path backend/rvoc-backend/Cargo.toml --test end_to_end
