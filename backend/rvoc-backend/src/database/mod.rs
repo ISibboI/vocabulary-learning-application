@@ -29,7 +29,7 @@ pub async fn connect_to_database(configuration: &Configuration) -> RVocResult<Da
             .connect_timeout(Duration::from_secs(configuration.mongodb_connect_timeout))
             .build(),
     )
-    .map_err(|error| RVocError::CouldNotSetUpDatabaseClient(error))?;
+    .map_err(RVocError::CouldNotSetUpDatabaseClient)?;
     let database = client.database(&configuration.mongodb_database);
 
     info!("Checking if database is available...");

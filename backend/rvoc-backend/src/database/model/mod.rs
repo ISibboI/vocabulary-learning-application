@@ -16,9 +16,7 @@ pub async fn sync_model(database: &Database) -> RVocResult<()> {
         Word::sync(database),
         User::sync(database),
     ] {
-        result
-            .await
-            .map_err(|error| RVocError::CouldNotSyncDatabaseModel(error))?;
+        result.await.map_err(RVocError::CouldNotSyncDatabaseModel)?;
     }
     info!("Synced database model successfully");
     Ok(())
