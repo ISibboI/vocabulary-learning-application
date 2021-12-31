@@ -10,6 +10,7 @@ rust-version = "1.56.1"
 
 [[bin]]
 name = "rvoc-backend"
+path = "src/bin.rs"
 
 [dependencies]
 tokio = {version = "1", features = ["rt-multi-thread"]}

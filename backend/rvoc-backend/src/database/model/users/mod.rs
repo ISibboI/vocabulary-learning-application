@@ -75,8 +75,8 @@ impl HashedPassword {
 
 #[cfg(test)]
 mod tests {
+    use crate::configuration::Configuration;
     use crate::database::model::users::HashedPassword;
-    use crate::Configuration;
     use clap::Parser;
     use std::ffi::OsString;
     use std::iter;
