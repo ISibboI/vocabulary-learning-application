@@ -38,9 +38,9 @@ pub async fn run_api_server(configuration: &Configuration, database: Database) -
     let api_command = warp::post()
         .and(warp::path("command"))
         .and(warp::body::content_length_limit(16 * 1024))
-        .and(warp::body::json())
         .and(warp::any().map(move || database.clone()))
-        .and_then(ApiCommand::execute_consume);
+        .and(warp::body::json())
+        .and_then(execute_api_command);
 
     warp::serve(api_command)
         .run((
@@ -51,15 +51,18 @@ pub async fn run_api_server(configuration: &Configuration, database: Database) -
     Ok(())
 }
 
-impl ApiCommand {
-    pub async fn execute_consume(self, database: Database) -> Result<impl Reply, Infallible> {
-        Ok(self
-            .execute_internal(database)
-            .await
-            .map(|api_response| warp::reply::json(&api_response))
-            .unwrap_or_else(|error| warp::reply::json(&ApiResponse::error(error))))
-    }
+async fn execute_api_command(
+    database: Database,
+    api_command: ApiCommand,
+) -> Result<impl Reply, Infallible> {
+    Ok(api_command
+        .execute_internal(database)
+        .await
+        .map(|api_response| warp::reply::json(&api_response))
+        .unwrap_or_else(|error| warp::reply::json(&ApiResponse::error(error))))
+}
 
+impl ApiCommand {
     async fn execute_internal(self, database: Database) -> RVocResult<ApiResponse> {
         match self {
             ApiCommand::AddLanguage { name } => {
