@@ -19,7 +19,12 @@ pub enum RVocError {
     UnsupportedConfigFileExtension(PathBuf),
 
     /// A password passed to the application was too long.
-    PasswordTooLong,
+    PasswordTooLong {
+        /// The number of bytes in the given password.
+        password_bytes: usize,
+        /// The maximum allowed number of bytes.
+        max_bytes: usize,
+    },
 
     /// Could not create the client type for the database.
     CouldNotSetUpDatabaseClient(wither::mongodb::error::Error),

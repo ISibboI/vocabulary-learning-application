@@ -1,5 +1,3 @@
-#![deny(warnings)]
-
 use crate::api_server::run_api_server;
 use crate::configuration::{parse_configuration, Configuration};
 use crate::database::connect_to_database;
@@ -8,11 +6,6 @@ use log::{error, info, LevelFilter};
 use simplelog::{ColorChoice, Config, TermLogger, TerminalMode};
 use std::time::Duration;
 use tokio::runtime::Builder;
-
-mod api_server;
-mod configuration;
-mod database;
-mod error;
 
 fn init_logging() {
     TermLogger::init(
@@ -25,7 +18,7 @@ fn init_logging() {
     info!("Logging initialized");
 }
 
-fn main() {
+pub fn main() {
     init_logging();
     let configuration =
         parse_configuration().unwrap_or_else(|e| panic!("Cannot parse configuration: {:?}", e));
