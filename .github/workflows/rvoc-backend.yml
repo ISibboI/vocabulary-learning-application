@@ -104,7 +104,7 @@ jobs:
           args: --manifest-path backend/rvoc-backend/Cargo.toml ${{matrix.command.args}}
 
   end_to_end:
-    name: End to end
+    name: End to End
     needs:
       - build_test_format_lint
     runs-on: ubuntu-latest
