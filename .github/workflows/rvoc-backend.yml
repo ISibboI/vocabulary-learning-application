@@ -10,14 +10,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        toolchain: [stable, beta, nightly, 1.56.1]
+        toolchain: [stable]
         command:
           - name: Check
             command: check
             args: --all-features --all --all-targets
           - name: Test
             command: test
-            args: --all-features
+            args: --all-features --bins
         include:
           - toolchain: stable
             command:
@@ -60,3 +60,79 @@ jobs:
         with:
           command: ${{matrix.command.command}}
           args: --manifest-path backend/rvoc-backend/Cargo.toml ${{matrix.command.args}}
+
+  build_test_format_lint_optional:
+    name: ${{matrix.command.name}} (${{matrix.toolchain}}, optional)
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: [beta, nightly, 1.56.1]
+        command:
+          - name: Check
+            command: check
+            args: --all-features --all --all-targets
+          - name: Test
+            command: test
+            args: --all-features --bins
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          profile: minimal
+          override: true
+          default: true
+          components: rustfmt, clippy
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v1
+        with:
+          key: ${{ runner.os }}-optional
+          working-directory: backend/rvoc-backend
+
+      - name: ${{matrix.command.name}}
+        uses: actions-rs/cargo@v1
+        with:
+          command: ${{matrix.command.command}}
+          args: --manifest-path backend/rvoc-backend/Cargo.toml ${{matrix.command.args}}
+
+  end_to_end:
+    name: End to End
+    needs:
+      - build_test_format_lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - name: Docker compose build and up
+        run: docker-compose -f backend/docker-compose.yml up -d --build
+
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+          default: true
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v1
+        with:
+          key: ${{ runner.os }}-end_to_end
+          working-directory: backend/rvoc-backend
+
+      - name: End to end tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --manifest-path backend/rvoc-backend/Cargo.toml --test end_to_end

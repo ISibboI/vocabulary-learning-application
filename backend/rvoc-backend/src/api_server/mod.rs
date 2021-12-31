@@ -11,7 +11,7 @@ use warp::{Filter, Reply};
 use wither::mongodb::Database;
 use wither::Model;
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(tag = "command", rename_all = "snake_case")]
 pub enum ApiCommand {
     AddLanguage { name: String },
@@ -19,15 +19,15 @@ pub enum ApiCommand {
     ListLanguages { limit: usize },
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "snake_case")]
 pub struct ApiResponse {
-    error: Option<String>,
+    pub error: Option<String>,
     #[serde(flatten)]
-    data: ApiResponseData,
+    pub data: ApiResponseData,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(tag = "response_type", content = "data", rename_all = "snake_case")]
 pub enum ApiResponseData {
     None,

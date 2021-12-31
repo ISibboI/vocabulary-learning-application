@@ -1,5 +1,5 @@
-use crate::error::RVocError;
-use crate::{Configuration, RVocResult};
+use crate::configuration::Configuration;
+use crate::error::{RVocError, RVocResult};
 use argon2::Argon2;
 use password_hash::{PasswordHash, SaltString};
 use rand_core::OsRng;

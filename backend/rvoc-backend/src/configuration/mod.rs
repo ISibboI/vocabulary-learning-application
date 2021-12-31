@@ -1,5 +1,4 @@
-use crate::error::RVocError;
-use crate::RVocResult;
+use crate::error::{RVocError, RVocResult};
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 use std::fs::read_to_string;
