@@ -53,6 +53,9 @@ pub struct Configuration {
 
     #[clap(long, default_value = "2374", conflicts_with = "config-file")]
     pub api_listen_port: u16,
+
+    #[clap(long, default_value = "1024", conflicts_with = "config-file")]
+    pub max_password_bytes: usize,
 }
 
 /// Parse the configuration.

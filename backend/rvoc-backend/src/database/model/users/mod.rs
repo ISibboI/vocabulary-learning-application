@@ -1,5 +1,5 @@
 use crate::error::RVocError;
-use crate::RVocResult;
+use crate::{Configuration, RVocResult};
 use argon2::Argon2;
 use password_hash::{PasswordHash, SaltString};
 use rand_core::OsRng;
@@ -28,17 +28,17 @@ pub struct HashedPassword {
     hashed_password: String,
 }
 
-/// The maximum length of a password in bytes.
-pub static MAXIMUM_PASSWORD_BYTES: usize = 1024;
-
 // Temporary silence of unused warnings.
 #[allow(unused)]
 impl HashedPassword {
     /// Create a hashed representation of the given password.
     /// The salt for the hash is generated with [OsRng](rand_core::OsRng).
-    pub fn new(plain_text_password: &str) -> RVocResult<Self> {
-        if plain_text_password.len() > MAXIMUM_PASSWORD_BYTES {
-            return Err(RVocError::PasswordTooLong);
+    pub fn new(plain_text_password: &str, configuration: &Configuration) -> RVocResult<Self> {
+        if plain_text_password.len() > configuration.max_password_bytes {
+            return Err(RVocError::PasswordTooLong {
+                password_bytes: plain_text_password.len(),
+                max_bytes: configuration.max_password_bytes,
+            });
         }
 
         let salt = SaltString::generate(&mut OsRng);
@@ -54,9 +54,16 @@ impl HashedPassword {
     }
 
     /// Check if the given password matches the hashed representation.
-    pub fn check(&self, plain_text_password: &str) -> RVocResult<bool> {
-        if plain_text_password.len() > MAXIMUM_PASSWORD_BYTES {
-            return Err(RVocError::PasswordTooLong);
+    pub fn check(
+        &self,
+        plain_text_password: &str,
+        configuration: &Configuration,
+    ) -> RVocResult<bool> {
+        if plain_text_password.len() > configuration.max_password_bytes {
+            return Err(RVocError::PasswordTooLong {
+                password_bytes: plain_text_password.len(),
+                max_bytes: configuration.max_password_bytes,
+            });
         }
 
         let password_hash = PasswordHash::new(&self.hashed_password)?;
@@ -69,12 +76,19 @@ impl HashedPassword {
 #[cfg(test)]
 mod tests {
     use crate::database::model::users::HashedPassword;
+    use crate::Configuration;
+    use clap::Parser;
+    use std::ffi::OsString;
+    use std::iter;
 
     #[test]
     fn test_password_check() {
+        let configuration = Configuration::parse_from(iter::empty::<OsString>());
         let password = "abc123";
-        let hashed_password = HashedPassword::new(password).unwrap();
-        assert!(hashed_password.check(password).unwrap());
-        assert!(!hashed_password.check("wrong password").unwrap());
+        let hashed_password = HashedPassword::new(password, &configuration).unwrap();
+        assert!(hashed_password.check(password, &configuration).unwrap());
+        assert!(!hashed_password
+            .check("wrong password", &configuration)
+            .unwrap());
     }
 }
