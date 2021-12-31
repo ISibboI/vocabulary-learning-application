@@ -1,7 +1,6 @@
 use crate::database::model::users::User;
 use crate::database::model::vocabulary::{Language, Word};
-use crate::error::RVocError;
-use crate::RVocResult;
+use crate::error::{RVocError, RVocResult};
 use log::info;
 use wither::mongodb::Database;
 use wither::Model;
