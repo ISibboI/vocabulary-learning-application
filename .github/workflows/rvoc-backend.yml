@@ -152,6 +152,9 @@ jobs:
       - name: RVOC logs
         run: docker logs backend_dev-rvoc_1
 
+      - name: RVOC inspect
+        run: docker container inspect backend_dev-rvoc_1
+
       - name: End to end tests
         uses: actions-rs/cargo@v1
         with:
