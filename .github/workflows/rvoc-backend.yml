@@ -52,7 +52,7 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@v1
         with:
-          key: ${{ runner.os }}
+          key: ${{ runner.os }}-${{ matrix.command.name }}-${{ matrix.toolchain }}
           working-directory: backend/rvoc-backend
 
       - name: ${{matrix.command.name}}
@@ -94,7 +94,7 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@v1
         with:
-          key: ${{ runner.os }}-optional
+          key: ${{ runner.os }}-${{ matrix.command.name }}-${{ matrix.toolchain }}-optional
           working-directory: backend/rvoc-backend
 
       - name: ${{matrix.command.name}}
