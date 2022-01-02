@@ -63,7 +63,7 @@ pub struct ConfigurationInner {
     pub session_id_length: usize,
 
     #[clap(long, default_value = "604800", conflicts_with = "config-file")]
-    pub session_cookie_max_age_seconds: u64,
+    pub session_cookie_max_age_seconds: i64,
 }
 
 #[derive(Clone)]

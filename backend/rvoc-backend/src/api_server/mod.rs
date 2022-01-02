@@ -1,7 +1,8 @@
 use crate::configuration::Configuration;
-use crate::database::model::users::{SessionId, User};
+use crate::database::model::users::{Session, SessionId, User};
 use crate::database::model::vocabulary::Language;
 use crate::error::{RVocError, RVocResult};
+use cookie::{CookieBuilder, Expiration, SameSite};
 use futures::StreamExt;
 use futures::TryStreamExt;
 use log::info;
@@ -10,10 +11,11 @@ use std::convert::Infallible;
 use std::fmt::Debug;
 use std::net::Ipv4Addr;
 use std::str::FromStr;
-use std::time::Duration;
+use std::time::SystemTime;
 use warp::http::header::SET_COOKIE;
 use warp::http::{HeaderValue, StatusCode};
 use warp::reject::Reject;
+use warp::reply::Response;
 use warp::{Filter, Rejection, Reply};
 use wither::bson::doc;
 use wither::mongodb::Database;
@@ -36,60 +38,24 @@ pub struct LoginCommand {
     password: String,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
-#[serde(rename_all = "snake_case")]
-pub struct ApiResponse {
-    pub error: Option<String>,
-    #[serde(flatten)]
-    pub data: ApiResponseData,
+struct ApiResponse {
+    data: ApiResponseData,
+    session: Session,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(tag = "response_type", content = "data", rename_all = "snake_case")]
 pub enum ApiResponseData {
-    None,
+    Ok,
+    Error(String),
     ListLanguages(Vec<Language>),
 }
 
+#[derive(Deserialize, Serialize, Debug)]
+#[serde(tag = "response_type", content = "data", rename_all = "snake_case")]
 pub enum LoginResponse {
-    Ok {
-        session_id: SessionId,
-        max_age: Duration,
-    },
+    Ok { session: Session },
     Error,
-}
-
-impl Reply for LoginResponse {
-    fn into_response(self) -> warp::reply::Response {
-        match self {
-            LoginResponse::Ok {
-                session_id,
-                max_age,
-            } => {
-                let mut response = warp::reply::json(&ApiResponse {
-                    error: None,
-                    data: ApiResponseData::None,
-                })
-                .into_response();
-                response.headers_mut().append(
-                    SET_COOKIE,
-                    HeaderValue::try_from(format!(
-                        "{}={}; Secure; HttpOnly; SameSite=Strict; Max-Age={}",
-                        SESSION_COOKIE_NAME,
-                        session_id.to_string(),
-                        max_age.as_secs(),
-                    ))
-                    .expect("invalid cookie string"),
-                );
-                response
-            }
-            LoginResponse::Error => warp::reply::json(&ApiResponse {
-                error: Some("Authentication error".to_string()),
-                data: ApiResponseData::None,
-            })
-            .into_response(),
-        }
-    }
 }
 
 pub async fn run_api_server(configuration: &Configuration, database: &Database) -> RVocResult<()> {
@@ -139,31 +105,61 @@ async fn check_authentication(
     configuration: Configuration,
     database: Database,
     session_id: Option<String>,
-) -> Result<(Configuration, Database, User), Rejection> {
+) -> Result<(Configuration, Database, Session, User), Rejection> {
     match session_id {
-        Some(session_id) => User::find_by_session_id(
-            &database,
-            &SessionId::try_from_string(session_id, &configuration)?,
-        )
-        .await
-        .map(|user| (configuration, database, user))
-        .map_err(|_| warp::reject::custom(RVocError::NotAuthenticated)),
+        Some(session_id) => {
+            let session_id = SessionId::try_from_string(session_id, &configuration)?;
+            User::find_by_session_id(&database, &session_id)
+                .await
+                .map(|user| {
+                    (
+                        configuration,
+                        database,
+                        user.sessions
+                            .iter()
+                            .find(|session| session.session_id() == &session_id)
+                            .unwrap()
+                            .clone(),
+                        user,
+                    )
+                })
+                .map_err(|_| warp::reject::custom(RVocError::NotAuthenticated))
+        }
         None => Err(warp::reject::custom(RVocError::NotAuthenticated)),
     }
 }
 
 async fn execute_api_command(
-    _configuration: Configuration,
+    configuration: Configuration,
     database: Database,
-    _user: User,
+    session: Session,
+    user: User,
     api_command: ApiCommand,
 ) -> Result<impl Reply, Infallible> {
-    Ok(api_command
-        .execute(database)
+    let (user, session) = match user
+        .update_session(session.clone(), &database, &configuration)
         .await
-        .map(|api_response| warp::reply::json(&api_response))
+    {
+        Ok((user, session)) => (user, session),
+        Err(error) => {
+            return Ok(ApiResponse {
+                data: ApiResponseData::error(error),
+                session,
+            })
+        }
+    };
+    Ok(api_command
+        .execute(user, session.clone(), configuration, database)
+        .await
+        .map(|api_response_data| ApiResponse {
+            data: api_response_data,
+            session: session.clone(),
+        })
         // This is not good and should be changed, as it leaks internal information via error messages.
-        .unwrap_or_else(|error| warp::reply::json(&ApiResponse::error(error))))
+        .unwrap_or_else(|error| ApiResponse {
+            data: ApiResponseData::error(error),
+            session,
+        }))
 }
 
 async fn execute_login(
@@ -184,12 +180,13 @@ async fn execute_login(
                             .await
                             .unwrap_or(false)
                     {
-                        return Ok(LoginResponse::Ok {
-                            session_id,
-                            max_age: Duration::from_secs(
-                                configuration.session_cookie_max_age_seconds,
-                            ),
-                        });
+                        let session = user
+                            .sessions
+                            .iter()
+                            .find(|session| session.session_id() == &session_id)
+                            .unwrap()
+                            .clone();
+                        return Ok(LoginResponse::Ok { session });
                     } else {
                         return Ok(LoginResponse::Error);
                     }
@@ -202,7 +199,7 @@ async fn execute_login(
     };
 
     // Try to log in user if not yet logged in.
-    let session_id = match session_id {
+    let session = match session_id {
         None => {
             if let Ok(user) = User::find_by_login_name(&database, login_command.login_name).await {
                 if user
@@ -228,11 +225,8 @@ async fn execute_login(
         session_id => session_id,
     };
 
-    if let Some(session_id) = session_id {
-        Ok(LoginResponse::Ok {
-            session_id,
-            max_age: Duration::from_secs(configuration.session_cookie_max_age_seconds),
-        })
+    if let Some(session) = session {
+        Ok(LoginResponse::Ok { session })
     } else {
         Ok(LoginResponse::Error)
     }
@@ -254,41 +248,90 @@ async fn handle_rejection(error: Rejection) -> Result<impl Reply, Infallible> {
 }
 
 impl ApiCommand {
-    async fn execute(self, database: Database) -> RVocResult<ApiResponse> {
+    async fn execute(
+        self,
+        _user: User,
+        _session: Session,
+        _configuration: Configuration,
+        database: Database,
+    ) -> RVocResult<ApiResponseData> {
         match self {
             ApiCommand::AddLanguage { name } => {
                 let mut language = Language { id: None, name };
                 language.save(&database, None).await?;
 
-                Ok(ApiResponse::ok())
+                Ok(ApiResponseData::Ok)
             }
             ApiCommand::ListLanguages { limit } => {
                 let limit = limit.clamp(0, 10_000);
                 let language_cursor = Language::find(&database, None, None).await?;
-                Ok(ApiResponse::ok_with_data(ApiResponseData::ListLanguages(
+                Ok(ApiResponseData::ListLanguages(
                     language_cursor.take(limit).try_collect().await?,
-                )))
+                ))
             }
         }
     }
 }
 
-impl ApiResponse {
-    pub fn ok() -> Self {
-        Self {
-            error: None,
-            data: ApiResponseData::None,
-        }
-    }
-
-    pub fn ok_with_data(data: ApiResponseData) -> Self {
-        Self { error: None, data }
-    }
-
+impl ApiResponseData {
     pub fn error(error: RVocError) -> Self {
-        Self {
-            error: Some(format!("{:?}", error)),
-            data: ApiResponseData::None,
+        Self::Error(format!("{:?}", error))
+    }
+
+    #[allow(unused)]
+    pub fn is_error(&self) -> bool {
+        matches!(self, ApiResponseData::Error(_))
+    }
+}
+
+fn create_session_cookie_header_value(session: &Session) -> HeaderValue {
+    let cookie = CookieBuilder::new(SESSION_COOKIE_NAME, session.session_id().to_string())
+        .secure(true)
+        .http_only(true)
+        .same_site(SameSite::Strict)
+        .expires(Expiration::DateTime(
+            SystemTime::from(session.expires().to_chrono()).into(),
+        ))
+        .finish();
+    HeaderValue::try_from(cookie.to_string()).expect("invalid cookie string")
+}
+
+impl Reply for ApiResponse {
+    fn into_response(self) -> Response {
+        let mut response = warp::reply::json(&self.data).into_response();
+
+        response.headers_mut().append(
+            SET_COOKIE,
+            create_session_cookie_header_value(&self.session),
+        );
+        response
+    }
+}
+
+impl Reply for LoginResponse {
+    fn into_response(self) -> warp::reply::Response {
+        match self {
+            LoginResponse::Ok { session } => {
+                let mut response = warp::reply::json(&ApiResponseData::Ok).into_response();
+                let cookie =
+                    CookieBuilder::new(SESSION_COOKIE_NAME, session.session_id().to_string())
+                        .secure(true)
+                        .http_only(true)
+                        .same_site(SameSite::Strict)
+                        .expires(Expiration::DateTime(
+                            SystemTime::from(session.expires().to_chrono()).into(),
+                        ))
+                        .finish();
+                response.headers_mut().append(
+                    SET_COOKIE,
+                    HeaderValue::try_from(cookie.to_string()).expect("invalid cookie string"),
+                );
+                response
+            }
+            LoginResponse::Error => {
+                warp::reply::json(&ApiResponseData::Error("Authentication error".to_string()))
+                    .into_response()
+            }
         }
     }
 }

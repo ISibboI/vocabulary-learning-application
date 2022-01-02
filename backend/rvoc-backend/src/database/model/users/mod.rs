@@ -1,6 +1,8 @@
 use crate::configuration::Configuration;
 use crate::error::{RVocError, RVocResult};
 use argon2::Argon2;
+use bson::bson;
+use chrono::{Duration, Utc};
 use password_hash::{PasswordHash, SaltString};
 use rand::rngs::OsRng;
 use rand::seq::SliceRandom;
@@ -8,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use wither::bson::oid::ObjectId;
 use wither::mongodb::bson::doc;
 use wither::mongodb::Database;
-use wither::Model;
+use wither::{bson, Model};
 
 /// A user of the application.
 #[derive(Debug, Model, Serialize, Deserialize)]
@@ -26,7 +28,7 @@ pub struct User {
     /// The password of the user.
     pub password: HashedPassword,
     /// The session ids used by a user.
-    pub sessions: Vec<SessionId>,
+    pub sessions: Vec<Session>,
 }
 
 impl User {
@@ -35,9 +37,13 @@ impl User {
         session_id: &SessionId,
     ) -> RVocResult<Self> {
         // session ids have a unique index, so there is never more than one user with a given session id.
-        Self::find_one(database, doc! {"sessions": session_id.to_string()}, None)
-            .await?
-            .ok_or_else(|| RVocError::SessionIdNotFound(session_id.clone()))
+        Self::find_one(
+            database,
+            doc! {"sessions.session_id": session_id.to_string()},
+            None,
+        )
+        .await?
+        .ok_or_else(|| RVocError::SessionIdNotFound(session_id.clone()))
     }
 
     pub async fn find_by_login_name(
@@ -54,19 +60,42 @@ impl User {
         mut self,
         database: &Database,
         configuration: &Configuration,
-    ) -> RVocResult<(Self, SessionId)> {
-        let session_id = SessionId::new(configuration).await;
-        self.sessions.push(session_id.clone());
+    ) -> RVocResult<(Self, Session)> {
+        let session = Session::new(configuration).await;
+        self.sessions.push(session.clone());
         Ok((
             self.update(
                 database,
                 None,
-                doc! {"$push": doc! {"sessions": session_id.to_string()}},
+                doc! {"$push": doc! {"sessions": session.to_doc()?}},
                 None,
             )
             .await?,
-            session_id,
+            session,
         ))
+    }
+
+    pub async fn update_session(
+        self,
+        session: Session,
+        database: &Database,
+        configuration: &Configuration,
+    ) -> RVocResult<(Self, Session)> {
+        let session = session.update(configuration);
+        let login_name = self.login_name.clone();
+        let updated_self = self
+            .update(database, None, bson!([
+                {"login_name": login_name, "sessions.session_id": session.session_id().to_string()},
+                {}
+            ]).as_document().cloned().ok_or(RVocError::CannotUpdateSessionExpiry)?, None)
+            .await?;
+        let session = updated_self
+            .sessions
+            .iter()
+            .find(|iter_session| session.session_id == iter_session.session_id)
+            .unwrap()
+            .clone();
+        Ok((updated_self, session))
     }
 }
 
@@ -121,8 +150,45 @@ impl HashedPassword {
     }
 }
 
-/// A session id.
+/// A session with a limited lifetime, identified by an id.
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Session {
+    session_id: SessionId,
+    expires: bson::DateTime,
+}
+
+impl Session {
+    pub async fn new(configuration: &Configuration) -> Self {
+        Self {
+            session_id: SessionId::new(configuration).await,
+            expires: bson::DateTime::from_chrono(
+                Utc::now() + Duration::seconds(configuration.session_cookie_max_age_seconds),
+            ),
+        }
+    }
+
+    pub fn update(mut self, configuration: &Configuration) -> Self {
+        self.expires = bson::DateTime::from_chrono(
+            Utc::now() + Duration::seconds(configuration.session_cookie_max_age_seconds),
+        );
+        self
+    }
+
+    pub fn session_id(&self) -> &SessionId {
+        &self.session_id
+    }
+
+    pub fn expires(&self) -> &bson::DateTime {
+        &self.expires
+    }
+
+    pub fn to_doc(&self) -> bson::ser::Result<bson::Document> {
+        bson::to_document(self)
+    }
+}
+
+/// A session id.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct SessionId {
     session_id: String,
 }

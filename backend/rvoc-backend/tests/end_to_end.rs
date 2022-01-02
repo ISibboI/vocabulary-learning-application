@@ -1,6 +1,6 @@
 use reqwest::blocking::Client;
 use reqwest::StatusCode;
-use rvoc_backend::{ApiCommand, ApiResponse, ApiResponseData};
+use rvoc_backend::{ApiCommand, ApiResponseData};
 use std::collections::hash_map::RandomState;
 use std::collections::HashSet;
 use std::str::FromStr;
@@ -13,12 +13,12 @@ fn expect_error(json: &str, error: &str) {
     assert_eq!(response.status(), StatusCode::from_str(error).unwrap());
 }
 
-fn expect_ok(api_command: &ApiCommand) -> ApiResponse {
+fn expect_ok(api_command: &ApiCommand) -> ApiResponseData {
     let client = Client::new();
     let response = client.post(URL).json(api_command).send().unwrap();
     assert_eq!(response.status(), StatusCode::from_str("200").unwrap());
-    let response: ApiResponse = response.json().unwrap();
-    assert!(response.error.is_none(), "Error:\n{:#?}", response);
+    let response: ApiResponseData = response.json().unwrap();
+    assert!(!response.is_error(), "Error:\n{:#?}", response);
     response
 }
 
@@ -38,7 +38,7 @@ fn test_language_commands() {
 
     let list_languages = |limit| {
         if let ApiResponseData::ListLanguages(listed_languages) =
-            expect_ok(&ApiCommand::ListLanguages { limit }).data
+            expect_ok(&ApiCommand::ListLanguages { limit })
         {
             let listed_languages: HashSet<_, RandomState> =
                 HashSet::from_iter(listed_languages.into_iter().map(|l| l.name));

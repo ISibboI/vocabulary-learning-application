@@ -14,6 +14,7 @@ pub enum RVocError {
     IoError(std::io::Error),
     TomlDeserializeError(toml::de::Error),
     PasswordHashError(password_hash::Error),
+    BsonSerializeError(wither::bson::ser::Error),
 
     // Custom errors
     /// A config file was given, but the file extension is not supported.
@@ -50,6 +51,9 @@ pub enum RVocError {
 
     /// Could not find the given login name.
     LoginNameNotFound(String),
+
+    /// Cannot update the current session expiry.
+    CannotUpdateSessionExpiry,
 }
 
 impl From<WitherError> for RVocError {
@@ -85,5 +89,11 @@ impl From<toml::de::Error> for RVocError {
 impl From<password_hash::Error> for RVocError {
     fn from(error: password_hash::Error) -> Self {
         Self::PasswordHashError(error)
+    }
+}
+
+impl From<wither::bson::ser::Error> for RVocError {
+    fn from(error: wither::bson::ser::Error) -> Self {
+        Self::BsonSerializeError(error)
     }
 }
