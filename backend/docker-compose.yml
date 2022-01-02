@@ -11,7 +11,10 @@ services:
   dev-rvoc:
     depends_on:
       - "dev-db"
-    build: "rvoc-backend"
+    build:
+      context: "rvoc-backend"
+      args:
+        RELEASE_FLAG: ""
     command: -- --mongodb-host dev-db
     restart: "no"
     ports:
