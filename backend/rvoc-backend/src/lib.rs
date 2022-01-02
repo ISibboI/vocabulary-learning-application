@@ -1,4 +1,3 @@
-#![deny(warnings)]
 #![allow(unused)]
 
 mod api_server;

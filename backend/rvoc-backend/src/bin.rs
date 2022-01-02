@@ -1,5 +1,3 @@
-#![deny(warnings)]
-
 mod api_server;
 mod configuration;
 mod database;
