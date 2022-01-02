@@ -15,7 +15,9 @@ services:
       context: "rvoc-backend"
       args:
         RELEASE_FLAG: ""
-    command: -- --mongodb-host dev-db
+    entrypoint: cargo run -- --mongodb-host dev-db
+    environment:
+      RUST_BACKTRACE: 1
     restart: "no"
     ports:
       - "127.0.0.1:2374:2374"
