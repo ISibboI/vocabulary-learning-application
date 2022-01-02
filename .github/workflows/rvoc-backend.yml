@@ -131,6 +131,15 @@ jobs:
           key: ${{ runner.os }}-end_to_end
           working-directory: backend/rvoc-backend
 
+      - name: Build tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --manifest-path backend/rvoc-backend/Cargo.toml --tests
+
+      - name: Docker ps
+        run: docker ps
+
       - name: End to end tests
         uses: actions-rs/cargo@v1
         with:
