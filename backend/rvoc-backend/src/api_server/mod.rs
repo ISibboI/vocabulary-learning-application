@@ -1,4 +1,5 @@
 use crate::configuration::Configuration;
+use crate::database::model::users::{SessionId, User};
 use crate::database::model::vocabulary::Language;
 use crate::error::{RVocError, RVocResult};
 use futures::StreamExt;
@@ -11,6 +12,7 @@ use std::str::FromStr;
 use warp::http::StatusCode;
 use warp::reject::Reject;
 use warp::{Filter, Rejection, Reply};
+use wither::bson::doc;
 use wither::mongodb::Database;
 use wither::Model;
 
@@ -37,12 +39,16 @@ pub enum ApiResponseData {
     ListLanguages(Vec<Language>),
 }
 
-pub async fn run_api_server(configuration: &Configuration, database: Database) -> RVocResult<()> {
+pub async fn run_api_server(configuration: Configuration, database: Database) -> RVocResult<()> {
+    let moved_configuration = configuration.clone();
     let api_command = warp::post()
         .and(warp::path("api/command"))
         .and(warp::body::content_length_limit(16 * 1024))
-        .and(check_authentication(database.clone()))
+        .and(warp::any().map(move || moved_configuration.clone()))
         .and(warp::any().map(move || database.clone()))
+        .and(warp::cookie::optional("sid"))
+        .and_then(check_authentication)
+        .untuple_one()
         .and(warp::body::json())
         .and_then(execute_api_command)
         .recover(handle_rejection);
@@ -59,29 +65,33 @@ pub async fn run_api_server(configuration: &Configuration, database: Database) -
 #[derive(Debug)]
 struct AuthenticationRejection;
 impl Reject for AuthenticationRejection {}
+impl Reject for RVocError {}
 
-fn check_authentication(
+async fn check_authentication(
+    configuration: Configuration,
     database: Database,
-) -> impl Filter<Extract = (), Error = Rejection> + Clone {
-    warp::any()
-        .and(warp::cookie::optional("sid"))
-        .and_then(move |cookie: Option<String>| async {
-            match cookie {
-                Some(cookie) => {
-                    todo!()
-                }
-                None => Err(warp::reject::custom(AuthenticationRejection)),
-            }
-        })
-        .untuple_one()
+    session_id: Option<String>,
+) -> Result<(Configuration, Database, User), Rejection> {
+    match session_id {
+        Some(session_id) => User::find_by_session_id(
+            &database,
+            &SessionId::try_from_string(session_id, configuration.clone())?,
+        )
+        .await
+        .map(|user| (configuration, database, user))
+        .map_err(|_| warp::reject::custom(AuthenticationRejection)),
+        None => Err(warp::reject::custom(AuthenticationRejection)),
+    }
 }
 
 async fn execute_api_command(
+    _configuration: Configuration,
     database: Database,
+    _user: User,
     api_command: ApiCommand,
 ) -> Result<impl Reply, Infallible> {
     Ok(api_command
-        .execute_internal(database)
+        .execute(database)
         .await
         .map(|api_response| warp::reply::json(&api_response))
         // This is not good and should be changed, as it leaks internal information via error messages.
@@ -89,7 +99,7 @@ async fn execute_api_command(
 }
 
 async fn handle_rejection(error: Rejection) -> Result<impl Reply, Infallible> {
-    if let Some(_) = error.find::<AuthenticationRejection>() {
+    if error.find::<AuthenticationRejection>().is_some() {
         Ok(warp::reply::with_status(
             "Not logged in".to_string(),
             StatusCode::FORBIDDEN,
@@ -104,7 +114,7 @@ async fn handle_rejection(error: Rejection) -> Result<impl Reply, Infallible> {
 }
 
 impl ApiCommand {
-    async fn execute_internal(self, database: Database) -> RVocResult<ApiResponse> {
+    async fn execute(self, database: Database) -> RVocResult<ApiResponse> {
         match self {
             ApiCommand::AddLanguage { name } => {
                 let mut language = Language { id: None, name };

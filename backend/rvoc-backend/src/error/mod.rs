@@ -1,3 +1,4 @@
+use crate::database::model::users::SessionId;
 use std::net::AddrParseError;
 use std::path::PathBuf;
 use wither::WitherError;
@@ -31,6 +32,18 @@ pub enum RVocError {
 
     /// Could not sync the database model specified by the application with the database.
     CouldNotSyncDatabaseModel(WitherError),
+
+    /// The given session id is not part of any user.
+    SessionIdNotFound(SessionId),
+
+    /// The given session id has a length different to the configured one.
+    WrongSessionIdLength {
+        given_session_id_length: usize,
+        configured_session_id_length: usize,
+    },
+
+    /// The given string is not a valid session id (i.e. contains invalid characters).
+    InvalidSessionId(String),
 }
 
 impl From<WitherError> for RVocError {
