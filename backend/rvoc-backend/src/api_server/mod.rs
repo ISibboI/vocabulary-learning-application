@@ -36,7 +36,7 @@ pub enum ApiResponseData {
 
 pub async fn run_api_server(configuration: &Configuration, database: Database) -> RVocResult<()> {
     let api_command = warp::post()
-        .and(warp::path("command"))
+        .and(warp::path("api/command"))
         .and(warp::body::content_length_limit(16 * 1024))
         .and(warp::any().map(move || database.clone()))
         .and(warp::body::json())
