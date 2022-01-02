@@ -44,6 +44,12 @@ pub enum RVocError {
 
     /// The given string is not a valid session id (i.e. contains invalid characters).
     InvalidSessionId(String),
+
+    /// The user is not authenticated.
+    NotAuthenticated,
+
+    /// Could not find the given login name.
+    LoginNameNotFound(String),
 }
 
 impl From<WitherError> for RVocError {

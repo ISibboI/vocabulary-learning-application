@@ -61,6 +61,9 @@ pub struct ConfigurationInner {
 
     #[clap(long, default_value = "32", conflicts_with = "config-file")]
     pub session_id_length: usize,
+
+    #[clap(long, default_value = "604800", conflicts_with = "config-file")]
+    pub session_cookie_max_age_seconds: u64,
 }
 
 #[derive(Clone)]

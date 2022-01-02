@@ -33,7 +33,7 @@ pub fn main() {
     info!("Built tokio runtime");
     info!("Entering tokio runtime...");
     runtime.block_on(async {
-        run_rvoc_backend(configuration.clone())
+        run_rvoc_backend(&configuration)
             .await
             .unwrap_or_else(|e| error!("Application error: {:#?}", e));
     });
@@ -44,7 +44,7 @@ pub fn main() {
     info!("Terminated");
 }
 
-async fn run_rvoc_backend(configuration: Configuration) -> RVocResult<()> {
+async fn run_rvoc_backend(configuration: &Configuration) -> RVocResult<()> {
     let database = connect_to_database(configuration.clone()).await?;
-    run_api_server(configuration, database).await
+    run_api_server(configuration, &database).await
 }
