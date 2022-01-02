@@ -4,6 +4,7 @@ use crate::database::model::vocabulary::Language;
 use crate::error::{RVocError, RVocResult};
 use futures::StreamExt;
 use futures::TryStreamExt;
+use log::info;
 use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
 use std::fmt::Debug;
@@ -53,12 +54,14 @@ pub async fn run_api_server(configuration: Configuration, database: Database) ->
         .and_then(execute_api_command)
         .recover(handle_rejection);
 
+    info!("Starting to serve API");
     warp::serve(api_command)
         .run((
             Ipv4Addr::from_str(&configuration.api_listen_address)?,
             configuration.api_listen_port,
         ))
         .await;
+    info!("API serving stopped");
     Ok(())
 }
 
