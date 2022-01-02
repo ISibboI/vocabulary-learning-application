@@ -114,6 +114,12 @@ jobs:
         with:
           submodules: true
 
+      - name: Docker pull
+        run: docker-compose -f backend/docker-compose.yml pull
+
+      - name: Docker layer cache
+        uses: satackey/action-docker-layer-caching@v0.0.11
+
       - name: Docker compose build and up
         run: docker-compose -f backend/docker-compose.yml up -d --build
 
