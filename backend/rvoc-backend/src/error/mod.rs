@@ -53,7 +53,10 @@ pub enum RVocError {
     LoginNameNotFound(String),
 
     /// Cannot update the current session expiry.
-    CannotUpdateSessionExpiry,
+    CannotUpdateSessionExpiry(WitherError),
+
+    /// Cannot delete expired sessions.
+    CannotDeleteExpiredSessions(WitherError),
 }
 
 impl From<WitherError> for RVocError {

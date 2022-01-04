@@ -111,18 +111,7 @@ async fn check_authentication(
             let session_id = SessionId::try_from_string(session_id, &configuration)?;
             User::find_by_session_id(&database, &session_id)
                 .await
-                .map(|user| {
-                    (
-                        configuration,
-                        database,
-                        user.sessions
-                            .iter()
-                            .find(|session| session.session_id() == &session_id)
-                            .unwrap()
-                            .clone(),
-                        user,
-                    )
-                })
+                .map(|(user, session)| (configuration, database, session, user))
                 .map_err(|_| warp::reject::custom(RVocError::NotAuthenticated))
         }
         None => Err(warp::reject::custom(RVocError::NotAuthenticated)),
@@ -172,7 +161,7 @@ async fn execute_login(
     let session_id = match session_id {
         Some(session_id) => match SessionId::try_from_string(session_id.clone(), &configuration) {
             Ok(session_id) => match User::find_by_session_id(&database, &session_id).await {
-                Ok(user) => {
+                Ok((user, session)) => {
                     if user.login_name == login_command.login_name
                         && user
                             .password
@@ -180,12 +169,6 @@ async fn execute_login(
                             .await
                             .unwrap_or(false)
                     {
-                        let session = user
-                            .sessions
-                            .iter()
-                            .find(|session| session.session_id() == &session_id)
-                            .unwrap()
-                            .clone();
                         return Ok(LoginResponse::Ok { session });
                     } else {
                         return Ok(LoginResponse::Error);

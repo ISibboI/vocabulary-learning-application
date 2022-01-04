@@ -1,7 +1,6 @@
 use crate::configuration::Configuration;
 use crate::error::{RVocError, RVocResult};
 use argon2::Argon2;
-use bson::bson;
 use chrono::{Duration, Utc};
 use password_hash::{PasswordHash, SaltString};
 use rand::rngs::OsRng;
@@ -28,22 +27,28 @@ pub struct User {
     /// The password of the user.
     pub password: HashedPassword,
     /// The session ids used by a user.
-    pub sessions: Vec<Session>,
+    sessions: Vec<Session>,
 }
 
 impl User {
     pub async fn find_by_session_id(
         database: &Database,
         session_id: &SessionId,
-    ) -> RVocResult<Self> {
+    ) -> RVocResult<(Self, Session)> {
         // session ids have a unique index, so there is never more than one user with a given session id.
-        Self::find_one(
+        let user = Self::find_one(
             database,
             doc! {"sessions.session_id": session_id.to_string()},
             None,
         )
         .await?
-        .ok_or_else(|| RVocError::SessionIdNotFound(session_id.clone()))
+        .ok_or_else(|| RVocError::SessionIdNotFound(session_id.clone()))?;
+        let user = user.delete_outdated_sessions(database).await?;
+        let session = user
+            .find_session_by_session_id(session_id)
+            .ok_or_else(|| RVocError::SessionIdNotFound(session_id.clone()))?
+            .clone();
+        Ok((user, session))
     }
 
     pub async fn find_by_login_name(
@@ -54,6 +59,12 @@ impl User {
         Self::find_one(database, doc! {"login_name": login_name.as_ref()}, None)
             .await?
             .ok_or_else(|| RVocError::LoginNameNotFound(login_name.as_ref().to_string()))
+    }
+
+    pub fn find_session_by_session_id(&self, session_id: &SessionId) -> Option<&Session> {
+        self.sessions
+            .iter()
+            .find(|session| &session.session_id == session_id)
     }
 
     pub async fn create_session(
@@ -82,20 +93,33 @@ impl User {
         configuration: &Configuration,
     ) -> RVocResult<(Self, Session)> {
         let session = session.update(configuration);
-        let login_name = self.login_name.clone();
         let updated_self = self
-            .update(database, None, bson!([
-                {"login_name": login_name, "sessions.session_id": session.session_id().to_string()},
-                {}
-            ]).as_document().cloned().ok_or(RVocError::CannotUpdateSessionExpiry)?, None)
-            .await?;
+            .update(
+                database,
+                Some(doc! {"sessions.session_id": session.session_id().to_string()}),
+                doc! {"sessions.expires": session.expires},
+                None,
+            )
+            .await
+            .map_err(|error| RVocError::CannotUpdateSessionExpiry(error))?;
         let session = updated_self
-            .sessions
-            .iter()
-            .find(|iter_session| session.session_id == iter_session.session_id)
+            .find_session_by_session_id(&session.session_id)
             .unwrap()
             .clone();
         Ok((updated_self, session))
+    }
+
+    pub async fn delete_outdated_sessions(self, database: &Database) -> RVocResult<Self> {
+        let now = bson::DateTime::now();
+        Ok(self
+            .update(
+                database,
+                None,
+                doc! {"$pull": {"sessions.expires": {"$lt": now}}},
+                None,
+            )
+            .await
+            .map_err(|error| RVocError::CannotDeleteExpiredSessions(error))?)
     }
 }
 
