@@ -5,4 +5,4 @@ mod configuration;
 mod database;
 mod error;
 
-pub use api_server::{ApiCommand, ApiResponseData};
+pub use api_server::{ApiCommand, ApiResponseData, LoginCommand, SignupCommand};

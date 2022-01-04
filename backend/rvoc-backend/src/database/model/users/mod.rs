@@ -122,7 +122,7 @@ impl User {
                 None,
             )
             .await
-            .map_err(|error| RVocError::CannotUpdateSessionExpiry(error))?;
+            .map_err(RVocError::CannotUpdateSessionExpiry)?;
         let session = updated_self
             .find_session_by_session_id(&session.session_id)
             .unwrap()
@@ -140,7 +140,7 @@ impl User {
                 None,
             )
             .await
-            .map_err(|error| RVocError::CannotDeleteExpiredSessions(error))?)
+            .map_err(RVocError::CannotDeleteExpiredSessions)?)
     }
 }
 

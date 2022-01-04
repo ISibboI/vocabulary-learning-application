@@ -26,9 +26,17 @@ static SESSION_COOKIE_NAME: &str = "__Secure-sid";
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(tag = "command", rename_all = "snake_case")]
 pub enum ApiCommand {
-    AddLanguage { name: String },
+    AddLanguage {
+        name: String,
+    },
 
-    ListLanguages { limit: usize },
+    ListLanguages {
+        limit: usize,
+    },
+
+    /// Checks if the client is logged in.
+    /// Either returns [ApiResponseData::Ok](ApiResponseData::Ok), or an error indicating missing authentication.
+    IsLoggedIn,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -51,7 +59,7 @@ struct ApiResponse {
     pub session: Session,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Eq, PartialEq)]
 #[serde(tag = "response_type", content = "data", rename_all = "snake_case")]
 pub enum ApiResponseData {
     Ok,
@@ -292,6 +300,7 @@ impl ApiCommand {
                     language_cursor.take(limit).try_collect().await?,
                 ))
             }
+            ApiCommand::IsLoggedIn => Ok(ApiResponseData::Ok),
         }
     }
 }
@@ -361,6 +370,10 @@ impl Reply for LoginResponse {
 
 impl Reply for SignupResponse {
     fn into_response(self) -> Response {
-        warp::reply::json(&self).into_response()
+        warp::reply::json(&match self {
+            SignupResponse::Ok => ApiResponseData::Ok,
+            SignupResponse::Error => ApiResponseData::Error("Signup error".to_string()),
+        })
+        .into_response()
     }
 }
