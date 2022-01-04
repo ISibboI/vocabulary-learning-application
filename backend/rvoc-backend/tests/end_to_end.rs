@@ -1,5 +1,5 @@
-use reqwest::blocking::Client;
-use reqwest::StatusCode;
+use reqwest::blocking::{Client, RequestBuilder, Response};
+use reqwest::{IntoUrl, StatusCode};
 use rvoc_backend::{ApiCommand, ApiResponseData, LoginCommand, SignupCommand};
 use std::collections::hash_map::RandomState;
 use std::collections::HashSet;
@@ -9,11 +9,46 @@ static URL: &str = "http://localhost:2374/api/command";
 static LOGIN_URL: &str = "http://localhost:2374/api/login";
 static SIGNUP_URL: &str = "http://localhost:2374/api/signup";
 
+struct ClientWithCookies {
+    client: Client,
+    cookie: Option<String>,
+}
+
+impl Default for ClientWithCookies {
+    fn default() -> Self {
+        Self {
+            client: Client::new(),
+            // swap the two lines below to generate a stack overflow before any test is executed.
+            // ..Default::default()
+            cookie: None,
+        }
+    }
+}
+
+impl ClientWithCookies {
+    fn post<U: IntoUrl>(&self, url: U) -> RequestBuilder {
+        let builder = self.client.post(url);
+        if let Some(cookie) = &self.cookie {
+            builder.header("Cookie", cookie)
+        } else {
+            builder
+        }
+    }
+
+    fn set_cookie(&mut self, response: &Response) {
+        let cookie = response.cookies().next().unwrap();
+        assert!(cookie.secure());
+        assert!(cookie.http_only());
+        assert!(cookie.same_site_strict());
+        self.cookie = Some(format!("{}={}", cookie.name(), cookie.value()));
+    }
+}
+
 /// Sign up and log in a user with the given name, and return a [Client](reqwest::blocking::Client) with the session cookie set.
 /// Email will be <login_name>@test.com.
 /// Password will be the same as the login name.
-fn signup_and_login(login_name: &str) -> Client {
-    let client = Client::new();
+fn signup_and_login(login_name: &str) -> ClientWithCookies {
+    let mut client = ClientWithCookies::default();
     let response = client
         .post(SIGNUP_URL)
         .json(&SignupCommand {
@@ -37,6 +72,7 @@ fn signup_and_login(login_name: &str) -> Client {
         })
         .send()
         .unwrap();
+    client.set_cookie(&response);
     assert_eq!(response.status(), StatusCode::from_u16(200).unwrap());
     assert_eq!(
         response.json::<ApiResponseData>().unwrap(),
@@ -45,12 +81,12 @@ fn signup_and_login(login_name: &str) -> Client {
     client
 }
 
-fn expect_error(client: &Client, json: &str, error: &str) {
+fn expect_error(client: &ClientWithCookies, json: &str, error: &str) {
     let response = client.post(URL).json(json).send().unwrap();
     assert_eq!(response.status(), StatusCode::from_str(error).unwrap());
 }
 
-fn expect_ok(client: &Client, api_command: &ApiCommand) -> ApiResponseData {
+fn expect_ok(client: &ClientWithCookies, api_command: &ApiCommand) -> ApiResponseData {
     let response = client.post(URL).json(api_command).send().unwrap();
     assert_eq!(response.status(), StatusCode::from_str("200").unwrap());
     let response: ApiResponseData = response.json().unwrap();
@@ -100,6 +136,7 @@ fn test_language_commands() {
 
 #[test]
 fn test_signup_and_login() {
+    println!("Start test_signup_and_login");
     let client = signup_and_login("test_signup_and_login");
     let response = expect_ok(&client, &ApiCommand::IsLoggedIn);
     assert_eq!(response, ApiResponseData::Ok);
