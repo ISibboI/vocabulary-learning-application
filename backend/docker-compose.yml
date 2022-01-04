@@ -15,7 +15,7 @@ services:
       context: "rvoc-backend"
       args:
         RELEASE_FLAG: ""
-    entrypoint: cargo run -- --mongodb-host dev-db
+    entrypoint: cargo run -- --mongodb-host dev-db --session-cookie-max-age-seconds 15
     environment:
       RUST_BACKTRACE: 1
     restart: "no"

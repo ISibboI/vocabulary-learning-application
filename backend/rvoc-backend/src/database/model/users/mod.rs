@@ -1,3 +1,4 @@
+use crate::api_server::SignupCommand;
 use crate::configuration::Configuration;
 use crate::error::{RVocError, RVocResult};
 use argon2::Argon2;
@@ -15,7 +16,11 @@ use wither::{bson, Model};
 #[derive(Debug, Model, Serialize, Deserialize)]
 #[model(
     index(keys = r#"doc!{"login_name": 1}"#, options = r#"doc!{"unique": true}"#),
-    index(keys = r#"doc!{"sessions": 1}"#, options = r#"doc!{"unique": true}"#)
+    index(keys = r#"doc!{"email": 1}"#, options = r#"doc!{"unique": true}"#),
+    index(
+        keys = r#"doc!{"sessions.session_id": 1}"#,
+        options = r#"doc!{"unique": true}"#
+    )
 )]
 pub struct User {
     #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
@@ -31,6 +36,22 @@ pub struct User {
 }
 
 impl User {
+    pub async fn create(
+        signup_command: &SignupCommand,
+        database: &Database,
+        configuration: &Configuration,
+    ) -> RVocResult<Self> {
+        let mut user = Self {
+            id: None,
+            login_name: signup_command.login_name.clone(),
+            email: signup_command.email.clone(),
+            password: HashedPassword::new(&signup_command.password, configuration).await?,
+            sessions: Vec::new(),
+        };
+        user.save(database, None).await?;
+        Ok(user)
+    }
+
     pub async fn find_by_session_id(
         database: &Database,
         session_id: &SessionId,

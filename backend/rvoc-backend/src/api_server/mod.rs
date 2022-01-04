@@ -34,13 +34,21 @@ pub enum ApiCommand {
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "snake_case")]
 pub struct LoginCommand {
-    login_name: String,
-    password: String,
+    pub login_name: String,
+    pub password: String,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+#[serde(rename_all = "snake_case")]
+pub struct SignupCommand {
+    pub login_name: String,
+    pub password: String,
+    pub email: String,
 }
 
 struct ApiResponse {
-    data: ApiResponseData,
-    session: Session,
+    pub data: ApiResponseData,
+    pub session: Session,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -55,6 +63,13 @@ pub enum ApiResponseData {
 #[serde(tag = "response_type", content = "data", rename_all = "snake_case")]
 pub enum LoginResponse {
     Ok { session: Session },
+    Error,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+#[serde(tag = "response_type", content = "data", rename_all = "snake_case")]
+pub enum SignupResponse {
+    Ok,
     Error,
 }
 
@@ -86,7 +101,21 @@ pub async fn run_api_server(configuration: &Configuration, database: &Database) 
         .and(warp::body::json())
         .and_then(execute_login);
 
-    let api_filter = api_command.or(api_login).recover(handle_rejection);
+    // Build signup filter chain.
+    let cloned_configuration = configuration.clone();
+    let cloned_database = database.clone();
+    let api_signup = warp::post()
+        .and(warp::path!("api" / "signup"))
+        .and(warp::body::content_length_limit(16 * 1024))
+        .and(warp::any().map(move || cloned_configuration.clone()))
+        .and(warp::any().map(move || cloned_database.clone()))
+        .and(warp::body::json())
+        .and_then(execute_signup);
+
+    let api_filter = api_command
+        .or(api_login)
+        .or(api_signup)
+        .recover(handle_rejection);
 
     info!("Starting to serve API");
     warp::serve(api_filter)
@@ -215,6 +244,17 @@ async fn execute_login(
     }
 }
 
+async fn execute_signup(
+    configuration: Configuration,
+    database: Database,
+    signup_command: SignupCommand,
+) -> Result<impl Reply, Infallible> {
+    match User::create(&signup_command, &database, &configuration).await {
+        Ok(_) => Ok(SignupResponse::Ok),
+        Err(_) => Ok(SignupResponse::Error),
+    }
+}
+
 async fn handle_rejection(error: Rejection) -> Result<impl Reply, Infallible> {
     if let Some(RVocError::NotAuthenticated) = error.find::<RVocError>() {
         Ok(warp::reply::with_status(
@@ -316,5 +356,11 @@ impl Reply for LoginResponse {
                     .into_response()
             }
         }
+    }
+}
+
+impl Reply for SignupResponse {
+    fn into_response(self) -> Response {
+        warp::reply::json(&self).into_response()
     }
 }

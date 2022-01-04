@@ -56,3 +56,6 @@ fn test_language_commands() {
         list_languages(limit);
     }
 }
+
+#[test]
+fn test_login() {}
