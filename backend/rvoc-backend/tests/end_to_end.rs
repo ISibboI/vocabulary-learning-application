@@ -4,6 +4,8 @@ use rvoc_backend::{ApiCommand, ApiResponseData, LoginCommand, SignupCommand};
 use std::collections::hash_map::RandomState;
 use std::collections::HashSet;
 use std::str::FromStr;
+use std::thread::sleep;
+use std::time::Duration;
 
 static URL: &str = "http://localhost:2374/api/command";
 static LOGIN_URL: &str = "http://localhost:2374/api/login";
@@ -18,8 +20,6 @@ impl Default for ClientWithCookies {
     fn default() -> Self {
         Self {
             client: Client::new(),
-            // swap the two lines below to generate a stack overflow before any test is executed.
-            // ..Default::default()
             cookie: None,
         }
     }
@@ -78,6 +78,9 @@ fn signup_and_login(login_name: &str) -> ClientWithCookies {
         response.json::<ApiResponseData>().unwrap(),
         ApiResponseData::Ok
     );
+
+    sleep(Duration::from_secs(5));
+
     client
 }
 
@@ -88,7 +91,12 @@ fn expect_error(client: &ClientWithCookies, json: &str, error: &str) {
 
 fn expect_ok(client: &ClientWithCookies, api_command: &ApiCommand) -> ApiResponseData {
     let response = client.post(URL).json(api_command).send().unwrap();
-    assert_eq!(response.status(), StatusCode::from_str("200").unwrap());
+    assert_eq!(
+        response.status(),
+        StatusCode::from_str("200").unwrap(),
+        "Error!\n{:#?}",
+        response
+    );
     let response: ApiResponseData = response.json().unwrap();
     assert!(!response.is_error(), "Error:\n{:#?}", response);
     response

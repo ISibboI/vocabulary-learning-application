@@ -18,7 +18,7 @@ use wither::{bson, Model};
     index(keys = r#"doc!{"login_name": 1}"#, options = r#"doc!{"unique": true}"#),
     index(keys = r#"doc!{"email": 1}"#, options = r#"doc!{"unique": true}"#),
     index(
-        keys = r#"doc!{"sessions.session_id": 1}"#,
+        keys = r#"doc!{"sessions.session_id.session_id": 1}"#,
         options = r#"doc!{"unique": true}"#
     )
 )]
@@ -59,10 +59,11 @@ impl User {
         // session ids have a unique index, so there is never more than one user with a given session id.
         let user = Self::find_one(
             database,
-            doc! {"sessions.session_id": session_id.to_string()},
+            doc! {"sessions.session_id.session_id": session_id.to_string()},
             None,
         )
-        .await?
+        .await
+        .map_err(|error| error)?
         .ok_or_else(|| RVocError::SessionIdNotFound(session_id.clone()))?;
         let user = user.delete_outdated_sessions(database).await?;
         let session = user
@@ -117,8 +118,8 @@ impl User {
         let updated_self = self
             .update(
                 database,
-                Some(doc! {"sessions.session_id": session.session_id().to_string()}),
-                doc! {"sessions.expires": session.expires},
+                Some(doc! {"sessions.session_id.session_id": session.session_id().to_string()}),
+                doc! {"sessions.$.expires": session.expires},
                 None,
             )
             .await
@@ -136,7 +137,7 @@ impl User {
             .update(
                 database,
                 None,
-                doc! {"$pull": {"sessions.expires": {"$lt": now}}},
+                doc! {"$pull": {"sessions": {"expires": {"$lt": now}}}},
                 None,
             )
             .await

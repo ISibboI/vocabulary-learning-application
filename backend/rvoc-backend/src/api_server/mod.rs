@@ -5,7 +5,7 @@ use crate::error::{RVocError, RVocResult};
 use cookie::{CookieBuilder, Expiration, SameSite};
 use futures::StreamExt;
 use futures::TryStreamExt;
-use log::info;
+use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
 use std::fmt::Debug;
@@ -264,6 +264,8 @@ async fn execute_signup(
 }
 
 async fn handle_rejection(error: Rejection) -> Result<impl Reply, Infallible> {
+    debug!("{:#?}", error);
+
     if let Some(RVocError::NotAuthenticated) = error.find::<RVocError>() {
         Ok(warp::reply::with_status(
             "Not logged in".to_string(),
