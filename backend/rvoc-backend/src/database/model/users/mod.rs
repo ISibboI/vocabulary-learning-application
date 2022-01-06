@@ -42,7 +42,6 @@ impl User {
         database: &Database,
         configuration: &Configuration,
     ) -> RVocResult<Self> {
-        println!("Creating user from\n{:#?}", signup_command);
         let mut user = Self {
             id: None,
             login_name: signup_command.login_name.clone(),
@@ -145,6 +144,7 @@ impl User {
             if retry {
                 continue;
             }
+            updated_user.sessions.push(session.clone());
             return Ok((updated_user, session));
         }
 
@@ -158,7 +158,7 @@ impl User {
         configuration: &Configuration,
     ) -> RVocResult<(Self, Session)> {
         let session = session.update(configuration);
-        let updated_self = self
+        let mut updated_self = self
             .update(
                 database,
                 Some(doc! {"sessions.session_id.session_id": session.session_id().to_string()}),
@@ -171,12 +171,23 @@ impl User {
             .find_session_by_session_id(&session.session_id)
             .unwrap()
             .clone();
+        updated_self.sessions = updated_self
+            .sessions
+            .into_iter()
+            .map(|iter_session| {
+                if iter_session.session_id == session.session_id {
+                    session.clone()
+                } else {
+                    iter_session
+                }
+            })
+            .collect();
         Ok((updated_self, session))
     }
 
     pub async fn delete_outdated_sessions(self, database: &Database) -> RVocResult<Self> {
         let now = bson::DateTime::now();
-        Ok(self
+        let result = self
             .update(
                 database,
                 None,
@@ -184,7 +195,9 @@ impl User {
                 None,
             )
             .await
-            .map_err(RVocError::CannotDeleteExpiredSessions)?)
+            .map_err(RVocError::CannotDeleteExpiredSessions)?;
+        let result = Self::find_by_login_name(database, result.login_name).await?;
+        Ok(result)
     }
 }
 
@@ -240,7 +253,7 @@ impl HashedPassword {
 }
 
 /// A session with a limited lifetime, identified by an id.
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 pub struct Session {
     session_id: SessionId,
     expires: bson::DateTime,
