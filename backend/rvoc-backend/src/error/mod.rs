@@ -57,6 +57,11 @@ pub enum RVocError {
 
     /// Cannot delete expired sessions.
     CannotDeleteExpiredSessions(WitherError),
+
+    /// Did not find a free session id after the given amount of attempts.
+    NoFreeSessionId {
+        attempts: usize,
+    },
 }
 
 impl From<WitherError> for RVocError {

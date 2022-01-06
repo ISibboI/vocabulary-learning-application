@@ -7,10 +7,11 @@ use password_hash::{PasswordHash, SaltString};
 use rand::rngs::OsRng;
 use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
+use std::borrow::Borrow;
 use wither::bson::oid::ObjectId;
 use wither::mongodb::bson::doc;
 use wither::mongodb::Database;
-use wither::{bson, Model};
+use wither::{bson, Model, WitherError};
 
 /// A user of the application.
 #[derive(Debug, Model, Serialize, Deserialize)]
@@ -91,22 +92,55 @@ impl User {
     }
 
     pub async fn create_session(
-        mut self,
+        self,
         database: &Database,
         configuration: &Configuration,
     ) -> RVocResult<(Self, Session)> {
-        let session = Session::new(configuration).await;
-        self.sessions.push(session.clone());
-        Ok((
-            self.update(
-                database,
-                None,
-                doc! {"$push": doc! {"sessions": session.to_doc()?}},
-                None,
-            )
-            .await?,
-            session,
-        ))
+        static ATTEMPTS: usize = 100;
+        let mut updated_user = self;
+        let login_name = updated_user.login_name.clone();
+        for _ in 0..ATTEMPTS {
+            let session = Session::new(configuration).await;
+            let mut retry = false;
+            updated_user = match updated_user
+                .update(
+                    database,
+                    None,
+                    doc! {"$push": doc! {"sessions": session.to_doc()?}},
+                    None,
+                )
+                .await
+            {
+                Ok(user) => user,
+                Err(WitherError::Mongo(error @ wither::mongodb::error::Error { .. })) => {
+                    let kind = error.kind.clone();
+                    match kind.borrow() {
+                        wither::mongodb::error::ErrorKind::Command(
+                            wither::mongodb::error::CommandError {
+                                code, code_name, ..
+                            },
+                        ) => {
+                            if *code == 11000 {
+                                assert_eq!(code_name, "DuplicateKey");
+                                // We accidentally randomly chose an existing session id, so we just try again.
+                                retry = true;
+                                User::find_by_login_name(database, &login_name).await?
+                            } else {
+                                return Err(error.into());
+                            }
+                        }
+                        _ => return Err(error.into()),
+                    }
+                }
+                Err(error) => return Err(error.into()),
+            };
+            if retry {
+                continue;
+            }
+            return Ok((updated_user, session));
+        }
+
+        Err(RVocError::NoFreeSessionId { attempts: ATTEMPTS })
     }
 
     pub async fn update_session(
