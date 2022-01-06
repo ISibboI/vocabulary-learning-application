@@ -259,7 +259,10 @@ async fn execute_signup(
 ) -> Result<impl Reply, Infallible> {
     match User::create(&signup_command, &database, &configuration).await {
         Ok(_) => Ok(SignupResponse::Ok),
-        Err(_) => Ok(SignupResponse::Error),
+        Err(error) => {
+            println!("signup error:\n{:#?}", error);
+            Ok(SignupResponse::Error)
+        }
     }
 }
 

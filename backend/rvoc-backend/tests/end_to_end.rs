@@ -4,6 +4,8 @@ use rvoc_backend::{ApiCommand, ApiResponseData, LoginCommand, SignupCommand};
 use std::collections::hash_map::RandomState;
 use std::collections::HashSet;
 use std::str::FromStr;
+use std::thread::sleep;
+use std::time::Duration;
 
 static URL: &str = "http://localhost:2374/api/command";
 static LOGIN_URL: &str = "http://localhost:2374/api/login";
@@ -139,8 +141,20 @@ fn test_language_commands() {
 
 #[test]
 fn test_signup_and_login() {
-    println!("Start test_signup_and_login");
     let client = signup_and_login("test_signup_and_login");
     let response = expect_ok(&client, &ApiCommand::IsLoggedIn);
     assert_eq!(response, ApiResponseData::Ok);
+}
+
+#[test]
+fn test_session_expiry() {
+    let client = signup_and_login("test_session_expiry");
+    // Wait until session is expired
+    // (make sure that the session cookie is set to expire after 15 seconds in the test instance of the backend)
+    sleep(Duration::from_secs(20));
+    expect_error(
+        &client,
+        &serde_json::to_string(&ApiCommand::IsLoggedIn).unwrap(),
+        "403",
+    );
 }

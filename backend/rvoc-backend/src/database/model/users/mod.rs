@@ -19,7 +19,7 @@ use wither::{bson, Model};
     index(keys = r#"doc!{"email": 1}"#, options = r#"doc!{"unique": true}"#),
     index(
         keys = r#"doc!{"sessions.session_id.session_id": 1}"#,
-        options = r#"doc!{"unique": true}"#
+        options = r#"doc!{"unique": true, "sparse": true}"#
     )
 )]
 pub struct User {
@@ -41,6 +41,7 @@ impl User {
         database: &Database,
         configuration: &Configuration,
     ) -> RVocResult<Self> {
+        println!("Creating user from\n{:#?}", signup_command);
         let mut user = Self {
             id: None,
             login_name: signup_command.login_name.clone(),
