@@ -81,8 +81,13 @@ fn signup_and_login(login_name: &str) -> ClientWithCookies {
     client
 }
 
-fn expect_error(client: &ClientWithCookies, json: &str, error: &str) {
+fn expect_error_from_str(client: &ClientWithCookies, json: &str, error: &str) {
     let response = client.post(URL).json(json).send().unwrap();
+    assert_eq!(response.status(), StatusCode::from_str(error).unwrap());
+}
+
+fn expect_error(client: &ClientWithCookies, api_command: &ApiCommand, error: &str) {
+    let response = client.post(URL).json(api_command).send().unwrap();
     assert_eq!(response.status(), StatusCode::from_str(error).unwrap());
 }
 
@@ -102,7 +107,7 @@ fn expect_ok(client: &ClientWithCookies, api_command: &ApiCommand) -> ApiRespons
 #[test]
 fn test_empty_command() {
     let client = signup_and_login("test_empty_command");
-    expect_error(&client, "{}", "400");
+    expect_error_from_str(&client, "{}", "500");
 }
 
 #[test]
@@ -152,9 +157,5 @@ fn test_session_expiry() {
     // Wait until session is expired
     // (make sure that the session cookie is set to expire after 15 seconds in the test instance of the backend)
     sleep(Duration::from_secs(20));
-    expect_error(
-        &client,
-        &serde_json::to_string(&ApiCommand::IsLoggedIn).unwrap(),
-        "403",
-    );
+    expect_error(&client, &ApiCommand::IsLoggedIn, "403");
 }
