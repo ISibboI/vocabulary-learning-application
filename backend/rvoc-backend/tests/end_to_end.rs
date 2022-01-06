@@ -4,8 +4,6 @@ use rvoc_backend::{ApiCommand, ApiResponseData, LoginCommand, SignupCommand};
 use std::collections::hash_map::RandomState;
 use std::collections::HashSet;
 use std::str::FromStr;
-use std::thread::sleep;
-use std::time::Duration;
 
 static URL: &str = "http://localhost:2374/api/command";
 static LOGIN_URL: &str = "http://localhost:2374/api/login";
@@ -78,9 +76,6 @@ fn signup_and_login(login_name: &str) -> ClientWithCookies {
         response.json::<ApiResponseData>().unwrap(),
         ApiResponseData::Ok
     );
-
-    sleep(Duration::from_secs(5));
-
     client
 }
 

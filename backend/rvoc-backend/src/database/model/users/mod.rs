@@ -119,7 +119,7 @@ impl User {
             .update(
                 database,
                 Some(doc! {"sessions.session_id.session_id": session.session_id().to_string()}),
-                doc! {"sessions.$.expires": session.expires},
+                doc! {"$set": {"sessions.$.expires": session.expires}},
                 None,
             )
             .await
