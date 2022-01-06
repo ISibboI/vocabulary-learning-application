@@ -67,7 +67,15 @@ impl User {
         .await
         .map_err(|error| error)?
         .ok_or_else(|| RVocError::SessionIdNotFound(session_id.clone()))?;
-        let user = user.delete_outdated_sessions(database).await?;
+        let user = if user
+            .find_session_by_session_id(session_id)
+            .unwrap()
+            .is_outdated()
+        {
+            user.delete_outdated_sessions(database).await?
+        } else {
+            user
+        };
         let session = user
             .find_session_by_session_id(session_id)
             .ok_or_else(|| RVocError::SessionIdNotFound(session_id.clone()))?
@@ -265,6 +273,10 @@ impl Session {
 
     pub fn to_doc(&self) -> bson::ser::Result<bson::Document> {
         bson::to_document(self)
+    }
+
+    pub fn is_outdated(&self) -> bool {
+        self.expires < bson::DateTime::now()
     }
 }
 
