@@ -9,7 +9,7 @@ use wither::mongodb::{Client, Database};
 
 pub mod model;
 
-pub async fn connect_to_database(configuration: &Configuration) -> RVocResult<Database> {
+pub async fn connect_to_database(configuration: Configuration) -> RVocResult<Database> {
     info!(
         "Initialising mongodb driver for database '{}' at '{}'...",
         configuration.mongodb_database, configuration.mongodb_uri

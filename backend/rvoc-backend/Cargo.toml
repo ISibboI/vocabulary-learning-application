@@ -17,14 +17,18 @@ tokio = {version = "1", features = ["rt-multi-thread"]}
 wither = {version = "0.9", path = "wither/wither"}
 log = "0.4"
 simplelog = "0.11"
-clap = {version = "3.0.0-beta.7", features = ["derive"]}
+clap = {version = "3", features = ["derive"]}
 serde = "1"
 warp = "0.3"
 futures = "0.3"
 toml = "0.5"
 password-hash = "0.3"
 argon2 = "0.3"
-rand_core = "0.6"
+rand = "0.8"
+cookie = "0.16"
+chrono = "0.4"
+bson = {version = "2", features = ["chrono-0_4"]}
 
 [dev-dependencies]
-reqwest = {version = "0.11", features = ["blocking", "json"]}
+reqwest = {version = "0.11", features = ["blocking", "json", "cookies"]}
+serde_json = "1"

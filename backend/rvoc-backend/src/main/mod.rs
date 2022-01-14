@@ -45,6 +45,6 @@ pub fn main() {
 }
 
 async fn run_rvoc_backend(configuration: &Configuration) -> RVocResult<()> {
-    let database = connect_to_database(configuration).await?;
-    run_api_server(configuration, database).await
+    let database = connect_to_database(configuration.clone()).await?;
+    run_api_server(configuration, &database).await
 }

@@ -11,8 +11,13 @@ services:
   dev-rvoc:
     depends_on:
       - "dev-db"
-    build: "rvoc-backend"
-    command: -- --mongodb-host dev-db
+    build:
+      context: "rvoc-backend"
+      args:
+        RELEASE_FLAG: ""
+    entrypoint: cargo run -- --mongodb-host dev-db --session-cookie-max-age-seconds 15
+    environment:
+      RUST_BACKTRACE: 1
     restart: "no"
     ports:
       - "127.0.0.1:2374:2374"

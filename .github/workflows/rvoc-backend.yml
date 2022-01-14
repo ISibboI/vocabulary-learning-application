@@ -52,7 +52,7 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@v1
         with:
-          key: ${{ runner.os }}
+          key: ${{ runner.os }}-${{ matrix.command.name }}-${{ matrix.toolchain }}
           working-directory: backend/rvoc-backend
 
       - name: ${{matrix.command.name}}
@@ -94,7 +94,7 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@v1
         with:
-          key: ${{ runner.os }}-optional
+          key: ${{ runner.os }}-${{ matrix.command.name }}-${{ matrix.toolchain }}-optional
           working-directory: backend/rvoc-backend
 
       - name: ${{matrix.command.name}}
@@ -114,6 +114,12 @@ jobs:
         with:
           submodules: true
 
+      - name: Docker pull
+        run: docker-compose -f backend/docker-compose.yml pull
+
+      - name: Docker layer cache
+        uses: satackey/action-docker-layer-caching@v0.0.11
+
       - name: Docker compose build and up
         run: docker-compose -f backend/docker-compose.yml up -d --build
 
@@ -130,6 +136,24 @@ jobs:
         with:
           key: ${{ runner.os }}-end_to_end
           working-directory: backend/rvoc-backend
+
+      - name: Build tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --manifest-path backend/rvoc-backend/Cargo.toml --tests
+
+      - name: Docker ps
+        run: docker ps
+
+      - name: DB logs
+        run: docker logs backend_dev-db_1
+
+      - name: RVOC logs
+        run: docker logs backend_dev-rvoc_1
+
+      - name: RVOC inspect
+        run: docker container inspect backend_dev-rvoc_1
 
       - name: End to end tests
         uses: actions-rs/cargo@v1

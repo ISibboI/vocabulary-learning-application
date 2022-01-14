@@ -4,6 +4,9 @@ COPY src /src
 COPY wither /wither
 COPY Cargo.toml Cargo.lock /
 
-RUN cargo build --release --bins
+ARG RELEASE_FLAG="--release"
+ENV RELEASE_FLAG_ENV=$RELEASE_FLAG
 
-ENTRYPOINT ["cargo", "run", "--release"]
+RUN cargo build $RELEASE_FLAG_ENV --bins
+
+ENTRYPOINT cargo run $RELEASE_FLAG_ENV

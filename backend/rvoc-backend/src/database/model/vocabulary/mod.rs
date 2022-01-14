@@ -4,7 +4,7 @@ use wither::mongodb::bson::doc;
 use wither::Model;
 
 /// A language.
-#[derive(Debug, Model, Serialize, Deserialize)]
+#[derive(Debug, Model, Serialize, Deserialize, Eq, PartialEq)]
 #[model(index(keys = r#"doc!{"name": 1}"#, options = r#"doc!{"unique": true}"#))]
 pub struct Language {
     #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]

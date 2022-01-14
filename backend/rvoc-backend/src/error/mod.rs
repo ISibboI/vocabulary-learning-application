@@ -1,3 +1,4 @@
+use crate::database::model::users::SessionId;
 use std::net::AddrParseError;
 use std::path::PathBuf;
 use wither::WitherError;
@@ -13,6 +14,7 @@ pub enum RVocError {
     IoError(std::io::Error),
     TomlDeserializeError(toml::de::Error),
     PasswordHashError(password_hash::Error),
+    BsonSerializeError(wither::bson::ser::Error),
 
     // Custom errors
     /// A config file was given, but the file extension is not supported.
@@ -31,6 +33,35 @@ pub enum RVocError {
 
     /// Could not sync the database model specified by the application with the database.
     CouldNotSyncDatabaseModel(WitherError),
+
+    /// The given session id is not part of any user.
+    SessionIdNotFound(SessionId),
+
+    /// The given session id has a length different to the configured one.
+    WrongSessionIdLength {
+        given_session_id_length: usize,
+        configured_session_id_length: usize,
+    },
+
+    /// The given string is not a valid session id (i.e. contains invalid characters).
+    InvalidSessionId(String),
+
+    /// The user is not authenticated.
+    NotAuthenticated,
+
+    /// Could not find the given login name.
+    LoginNameNotFound(String),
+
+    /// Cannot update the current session expiry.
+    CannotUpdateSessionExpiry(WitherError),
+
+    /// Cannot delete expired sessions.
+    CannotDeleteExpiredSessions(WitherError),
+
+    /// Did not find a free session id after the given amount of attempts.
+    NoFreeSessionId {
+        attempts: usize,
+    },
 }
 
 impl From<WitherError> for RVocError {
@@ -66,5 +97,11 @@ impl From<toml::de::Error> for RVocError {
 impl From<password_hash::Error> for RVocError {
     fn from(error: password_hash::Error) -> Self {
         Self::PasswordHashError(error)
+    }
+}
+
+impl From<wither::bson::ser::Error> for RVocError {
+    fn from(error: wither::bson::ser::Error) -> Self {
+        Self::BsonSerializeError(error)
     }
 }
