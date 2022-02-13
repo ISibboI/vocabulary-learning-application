@@ -127,6 +127,8 @@ impl User {
                                 code, code_name, ..
                             },
                         ) => {
+                            // Check if the session id already exists, 11000 is the error code for a duplicate key.
+                            // This error occurs because we have a unique index on the session ids.
                             if *code == 11000 {
                                 assert_eq!(code_name, "DuplicateKey");
                                 // We accidentally randomly chose an existing session id, so we just try again.

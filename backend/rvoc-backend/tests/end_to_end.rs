@@ -36,6 +36,7 @@ impl ClientWithCookies {
     }
 
     fn set_cookie(&mut self, response: &Response) {
+        assert_eq!(response.cookies().count(), 1); // This method is only designed for a single cookie.
         let cookie = response.cookies().next().unwrap();
         assert!(cookie.secure());
         assert!(cookie.http_only());
@@ -213,4 +214,26 @@ fn test_user_not_kicked_out_on_duplicate_signup() {
 
     // Check if user is still logged in.
     expect_ok(&client, &ApiCommand::IsLoggedIn);
+}
+
+/// Test if two different clients can have a session at the same time.
+#[test]
+fn test_parallel_session() {
+    let session_count = 10;
+
+    let login_names: Vec<String> = (0..session_count)
+        .map(|i| format!("test_parallel_session_{i}"))
+        .collect();
+    let clients: Vec<_> = login_names
+        .iter()
+        .map(String::as_str)
+        .map(signup_and_login)
+        .collect();
+
+    let mut cookie_set = HashSet::new();
+    for client in &clients {
+        let response = expect_ok(client, &ApiCommand::IsLoggedIn);
+        assert_eq!(response, ApiResponseData::Ok);
+        assert!(cookie_set.insert(client.cookie.clone().unwrap())); // Assert that each session id is unique.
+    }
 }
