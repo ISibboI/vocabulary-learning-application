@@ -201,6 +201,37 @@ impl User {
         let result = Self::find_by_login_name(database, result.login_name).await?;
         Ok(result)
     }
+
+    pub async fn delete_session(self, session: &Session, database: &Database) -> RVocResult<Self> {
+        let result = self
+            .update(database, None, doc! {"$pull": {"sessions.session_id.session_id": session.session_id().to_string()}}, None)
+            .await
+            .map_err(|_| RVocError::CannotDeleteSession)?;
+        let result = Self::find_by_login_name(database, result.login_name).await?;
+        Ok(result)
+    }
+
+    pub async fn delete_other_sessions(
+        self,
+        session: &Session,
+        database: &Database,
+    ) -> RVocResult<Self> {
+        let result = self
+            .update(database, None, doc! {"$pull": {"sessions.session_id.session_id": {"$ne": session.session_id().to_string()}}}, None)
+            .await
+            .map_err(|_| RVocError::CannotDeleteOtherSessions)?;
+        let result = Self::find_by_login_name(database, result.login_name).await?;
+        Ok(result)
+    }
+
+    pub async fn delete_all_sessions(self, database: &Database) -> RVocResult<Self> {
+        let result = self
+            .update(database, None, doc! {"set": {"sessions": []}}, None)
+            .await
+            .map_err(|_| RVocError::CannotDeleteAllSessions)?;
+        let result = Self::find_by_login_name(database, result.login_name).await?;
+        Ok(result)
+    }
 }
 
 /// A password in hashed form.
