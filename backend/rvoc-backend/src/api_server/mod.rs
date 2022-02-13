@@ -87,24 +87,24 @@ pub enum ApiResponseData {
 }
 
 /// A response to a login command.
+/// This is for internal use only, it will be converted to [ApiResponseData] before responding.
 #[derive(Deserialize, Serialize, Debug)]
-#[serde(tag = "response_type", content = "data", rename_all = "snake_case")]
 pub enum LoginResponse {
     Ok { session: Session },
     Error,
 }
 
 /// A response to a signup command.
-#[derive(Deserialize, Serialize, Debug)]
-#[serde(tag = "response_type", content = "data", rename_all = "snake_case")]
+/// This is for internal use only, it will be converted to [ApiResponseData] before responding.
+#[derive(Debug)]
 pub enum SignupResponse {
     Ok,
     Error,
 }
 
 /// A response to a logout command.
-#[derive(Deserialize, Serialize, Debug)]
-#[serde(tag = "response_type", content = "data", rename_all = "snake_case")]
+/// This is for internal use only, it will be converted to [ApiResponseData] before responding.
+#[derive(Debug)]
 pub enum LogoutResponse {
     Ok,
     Error,
@@ -327,7 +327,10 @@ async fn execute_logout(
 
     Ok(match logout_result {
         Ok(_) => LogoutResponse::Ok,
-        Err(_) => LogoutResponse::Error,
+        Err(error) => {
+            info!("Logout error: {error:?}");
+            LogoutResponse::Error
+        }
     })
 }
 

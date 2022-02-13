@@ -3,6 +3,7 @@ use crate::configuration::Configuration;
 use crate::error::{RVocError, RVocResult};
 use argon2::Argon2;
 use chrono::{Duration, Utc};
+use log::info;
 use password_hash::{PasswordHash, SaltString};
 use rand::rngs::OsRng;
 use rand::seq::SliceRandom;
@@ -203,10 +204,11 @@ impl User {
     }
 
     pub async fn delete_session(self, session: &Session, database: &Database) -> RVocResult<Self> {
+        info!("Deleting session: {session:?}");
         let result = self
-            .update(database, None, doc! {"$pull": {"sessions.session_id.session_id": session.session_id().to_string()}}, None)
+            .update(database, None, doc! {"$pull": {"sessions": {"session_id.session_id": session.session_id().to_string()}}}, None)
             .await
-            .map_err(|_| RVocError::CannotDeleteSession)?;
+            .map_err(|error| {info!("Delete session error: {error:?}");RVocError::CannotDeleteSession})?;
         let result = Self::find_by_login_name(database, result.login_name).await?;
         Ok(result)
     }
