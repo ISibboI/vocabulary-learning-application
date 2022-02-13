@@ -333,7 +333,7 @@ fn test_single_logout() {
         let response = expect_logout_ok(&mut clients[0], &LogoutCommand::ThisSession);
         assert_eq!(response, ApiResponseData::Ok);
 
-        expect_error(&mut clients[0], &ApiCommand::IsLoggedIn, 403);
+        expect_error(&clients[0], &ApiCommand::IsLoggedIn, 403);
 
         clients = &mut clients[1..];
         for client in clients.iter_mut() {
