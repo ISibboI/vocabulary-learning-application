@@ -159,3 +159,58 @@ fn test_session_expiry() {
     sleep(Duration::from_secs(20));
     expect_error(&client, &ApiCommand::IsLoggedIn, "403");
 }
+
+/// Check if a logged in user is logged out if someone else tries to brute-force their password at the same time.
+#[test]
+fn test_user_not_kicked_out_on_wrong_login() {
+    let login_name = "test_user_not_kicked_out_on_wrong_login";
+    let client = signup_and_login(login_name);
+
+    // Wrong login.
+    let response = ClientWithCookies::default()
+        .post(LOGIN_URL)
+        .json(&LoginCommand {
+            login_name: login_name.to_string(),
+            password: "abc".to_string(),
+        })
+        .send()
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::from_u16(200).unwrap());
+    match response.json().unwrap() {
+        ApiResponseData::Error(error) => {
+            println!("{error}");
+        }
+        other => panic!("Expected error, but got {other:?}"),
+    }
+
+    // Check if user is still logged in.
+    expect_ok(&client, &ApiCommand::IsLoggedIn);
+}
+
+/// Check if a logged in user is logged out if someone else tries to create an account with their name at the same time.
+#[test]
+fn test_user_not_kicked_out_on_duplicate_signup() {
+    let login_name = "test_user_not_kicked_out_on_duplicate_signup";
+    let client = signup_and_login(login_name);
+
+    // Wrong signup.
+    let response = ClientWithCookies::default()
+        .post(SIGNUP_URL)
+        .json(&SignupCommand {
+            login_name: login_name.to_string(),
+            password: login_name.to_string(),
+            email: format!("{}@test.com", login_name),
+        })
+        .send()
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::from_u16(200).unwrap());
+    match response.json().unwrap() {
+        ApiResponseData::Error(error) => {
+            println!("{error}");
+        }
+        other => panic!("Expected error, but got {other:?}"),
+    }
+
+    // Check if user is still logged in.
+    expect_ok(&client, &ApiCommand::IsLoggedIn);
+}
