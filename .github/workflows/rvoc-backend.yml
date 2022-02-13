@@ -219,4 +219,4 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --manifest-path backend/rvoc-backend/Cargo.toml --test end_to_end --ignored
+          args: --manifest-path backend/rvoc-backend/Cargo.toml --test end_to_end -- --ignored
