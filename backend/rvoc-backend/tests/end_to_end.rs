@@ -183,11 +183,12 @@ fn test_signup_and_login() {
 }
 
 #[test]
+#[ignore]
 fn test_session_expiry() {
     let client = signup_and_login("test_session_expiry");
     // Wait until session is expired
     // (make sure that the session cookie is set to expire after 15 seconds in the test instance of the backend)
-    sleep(Duration::from_secs(20));
+    sleep(Duration::from_secs(125));
     expect_error(&client, &ApiCommand::IsLoggedIn, 403);
 }
 
@@ -246,13 +247,13 @@ fn test_user_not_kicked_out_on_duplicate_signup() {
     expect_ok(&mut client, &ApiCommand::IsLoggedIn);
 }
 
-/// Test if two different clients can have a session at the same time.
+/// Test if two different clients can have a session at the same time for different users.
 #[test]
-fn test_parallel_session() {
+fn test_parallel_session_different_users() {
     let session_count = 10;
 
     let login_names: Vec<String> = (0..session_count)
-        .map(|i| format!("test_parallel_session_{i}"))
+        .map(|i| format!("test_parallel_session_different_users_{i}"))
         .collect();
     let mut clients: Vec<_> = login_names
         .iter()
@@ -268,19 +269,59 @@ fn test_parallel_session() {
     }
 }
 
+/// Test if two different clients can have a session at the same time for the same user.
+#[test]
+fn test_parallel_session_same_user() {
+    let session_count = 10;
+
+    let login_name = "test_parallel_session_same_user";
+    let mut clients = vec![signup_and_login(login_name)];
+    clients.extend((0..session_count - 1).map(|_| {
+        let mut client = ClientWithCookies::default();
+        assert_eq!(
+            expect_login_ok(
+                &mut client,
+                &LoginCommand {
+                    login_name: login_name.to_string(),
+                    password: login_name.to_string(),
+                },
+            ),
+            ApiResponseData::Ok
+        );
+        client
+    }));
+
+    let mut cookie_set = HashSet::new();
+    for client in &mut clients {
+        let response = expect_ok(client, &ApiCommand::IsLoggedIn);
+        assert_eq!(response, ApiResponseData::Ok);
+        assert!(cookie_set.insert(client.cookie.clone().unwrap())); // Assert that each session id is unique.
+    }
+}
+
 /// Check if logging out sessions one by one works.
 #[test]
 fn test_single_logout() {
     let session_count = 10;
 
-    let login_names: Vec<String> = (0..session_count)
-        .map(|i| format!("test_single_logout_{i}"))
-        .collect();
-    let mut clients: Vec<_> = login_names
-        .iter()
-        .map(String::as_str)
-        .map(signup_and_login)
-        .collect();
+    let mut unaffected_user = signup_and_login("test_single_logout_unaffected_user");
+
+    let login_name = "test_single_logout";
+    let mut clients = vec![signup_and_login(login_name)];
+    clients.extend((0..session_count - 1).map(|_| {
+        let mut client = ClientWithCookies::default();
+        assert_eq!(
+            expect_login_ok(
+                &mut client,
+                &LoginCommand {
+                    login_name: login_name.to_string(),
+                    password: login_name.to_string(),
+                },
+            ),
+            ApiResponseData::Ok
+        );
+        client
+    }));
 
     for client in &mut clients {
         let response = expect_ok(client, &ApiCommand::IsLoggedIn);
@@ -302,4 +343,97 @@ fn test_single_logout() {
             );
         }
     }
+
+    assert_eq!(
+        expect_ok(&mut unaffected_user, &ApiCommand::IsLoggedIn),
+        ApiResponseData::Ok
+    );
+}
+
+/// Check if logging out all sessions but the own works.
+#[test]
+fn test_logout_others() {
+    let session_count = 10;
+
+    let mut unaffected_user = signup_and_login("test_logout_others_unaffected_user");
+
+    let login_name = "test_logout_others";
+    let mut clients = vec![signup_and_login(login_name)];
+    clients.extend((0..session_count - 1).map(|_| {
+        let mut client = ClientWithCookies::default();
+        assert_eq!(
+            expect_login_ok(
+                &mut client,
+                &LoginCommand {
+                    login_name: login_name.to_string(),
+                    password: login_name.to_string(),
+                },
+            ),
+            ApiResponseData::Ok
+        );
+        client
+    }));
+
+    for client in &mut clients {
+        let response = expect_ok(client, &ApiCommand::IsLoggedIn);
+        assert_eq!(response, ApiResponseData::Ok);
+    }
+
+    let response = expect_logout_ok(&mut clients[0], &LogoutCommand::AllOtherSessions);
+    assert_eq!(response, ApiResponseData::Ok);
+
+    assert_eq!(
+        expect_ok(&mut clients[0], &ApiCommand::IsLoggedIn),
+        ApiResponseData::Ok
+    );
+    for client in clients.iter_mut().skip(1) {
+        expect_error(client, &ApiCommand::IsLoggedIn, 403);
+    }
+
+    assert_eq!(
+        expect_ok(&mut unaffected_user, &ApiCommand::IsLoggedIn),
+        ApiResponseData::Ok
+    );
+}
+
+/// Check if logging out all sessions works.
+#[test]
+fn test_logout_all() {
+    let session_count = 10;
+
+    let mut unaffected_user = signup_and_login("test_logout_all_unaffected_user");
+
+    let login_name = "test_logout_all";
+    let mut clients = vec![signup_and_login(login_name)];
+    clients.extend((0..session_count - 1).map(|_| {
+        let mut client = ClientWithCookies::default();
+        assert_eq!(
+            expect_login_ok(
+                &mut client,
+                &LoginCommand {
+                    login_name: login_name.to_string(),
+                    password: login_name.to_string(),
+                },
+            ),
+            ApiResponseData::Ok
+        );
+        client
+    }));
+
+    for client in &mut clients {
+        let response = expect_ok(client, &ApiCommand::IsLoggedIn);
+        assert_eq!(response, ApiResponseData::Ok);
+    }
+
+    let response = expect_logout_ok(&mut clients[0], &LogoutCommand::AllSessions);
+    assert_eq!(response, ApiResponseData::Ok);
+
+    for client in &mut clients {
+        expect_error(client, &ApiCommand::IsLoggedIn, 403);
+    }
+
+    assert_eq!(
+        expect_ok(&mut unaffected_user, &ApiCommand::IsLoggedIn),
+        ApiResponseData::Ok
+    );
 }

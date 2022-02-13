@@ -219,7 +219,7 @@ impl User {
         database: &Database,
     ) -> RVocResult<Self> {
         let result = self
-            .update(database, None, doc! {"$pull": {"sessions.session_id.session_id": {"$ne": session.session_id().to_string()}}}, None)
+            .update(database, None, doc! {"$pull": {"sessions": {"session_id.session_id": {"$ne": session.session_id().to_string()}}}}, None)
             .await
             .map_err(|_| RVocError::CannotDeleteOtherSessions)?;
         let result = Self::find_by_login_name(database, result.login_name).await?;
@@ -228,7 +228,7 @@ impl User {
 
     pub async fn delete_all_sessions(self, database: &Database) -> RVocResult<Self> {
         let result = self
-            .update(database, None, doc! {"set": {"sessions": []}}, None)
+            .update(database, None, doc! {"$set": {"sessions": []}}, None)
             .await
             .map_err(|_| RVocError::CannotDeleteAllSessions)?;
         let result = Self::find_by_login_name(database, result.login_name).await?;
