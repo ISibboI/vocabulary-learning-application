@@ -17,7 +17,7 @@ jobs:
             args: --all-features --all --all-targets
           - name: Test
             command: test
-            args: --all-features
+            args: --all-features --bins --lib
           - name: Format
             command: fmt
             args: -- --check
@@ -68,16 +68,16 @@ jobs:
             args: --all-features --all --all-targets
           - name: Test
             command: test
-            args: --all-features
+            args: --all-features --bins --lib
           - name: Test ignored
             command: test
-            args: --all-features -- --ignored
+            args: --all-features --bins --lib -- --ignored
         include:
           - toolchain: stable
             command:
               name: Test ignored
               command: test
-              args: --all-features -- --ignored
+              args: --all-features --bins --lib -- --ignored
 
     steps:
       - uses: actions/checkout@v2
