@@ -3,6 +3,7 @@ use crate::configuration::Configuration;
 use crate::error::{RVocError, RVocResult};
 use argon2::Argon2;
 use chrono::{Duration, Utc};
+use log::info;
 use password_hash::{PasswordHash, SaltString};
 use rand::rngs::OsRng;
 use rand::seq::SliceRandom;
@@ -127,6 +128,8 @@ impl User {
                                 code, code_name, ..
                             },
                         ) => {
+                            // Check if the session id already exists, 11000 is the error code for a duplicate key.
+                            // This error occurs because we have a unique index on the session ids.
                             if *code == 11000 {
                                 assert_eq!(code_name, "DuplicateKey");
                                 // We accidentally randomly chose an existing session id, so we just try again.
@@ -196,6 +199,38 @@ impl User {
             )
             .await
             .map_err(RVocError::CannotDeleteExpiredSessions)?;
+        let result = Self::find_by_login_name(database, result.login_name).await?;
+        Ok(result)
+    }
+
+    pub async fn delete_session(self, session: &Session, database: &Database) -> RVocResult<Self> {
+        info!("Deleting session: {session:?}");
+        let result = self
+            .update(database, None, doc! {"$pull": {"sessions": {"session_id.session_id": session.session_id().to_string()}}}, None)
+            .await
+            .map_err(|error| {info!("Delete session error: {error:?}");RVocError::CannotDeleteSession})?;
+        let result = Self::find_by_login_name(database, result.login_name).await?;
+        Ok(result)
+    }
+
+    pub async fn delete_other_sessions(
+        self,
+        session: &Session,
+        database: &Database,
+    ) -> RVocResult<Self> {
+        let result = self
+            .update(database, None, doc! {"$pull": {"sessions": {"session_id.session_id": {"$ne": session.session_id().to_string()}}}}, None)
+            .await
+            .map_err(|_| RVocError::CannotDeleteOtherSessions)?;
+        let result = Self::find_by_login_name(database, result.login_name).await?;
+        Ok(result)
+    }
+
+    pub async fn delete_all_sessions(self, database: &Database) -> RVocResult<Self> {
+        let result = self
+            .update(database, None, doc! {"$set": {"sessions": []}}, None)
+            .await
+            .map_err(|_| RVocError::CannotDeleteAllSessions)?;
         let result = Self::find_by_login_name(database, result.login_name).await?;
         Ok(result)
     }

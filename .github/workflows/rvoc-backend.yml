@@ -17,23 +17,16 @@ jobs:
             args: --all-features --all --all-targets
           - name: Test
             command: test
-            args: --all-features --bins
-        include:
-          - toolchain: stable
-            command:
-              name: Format
-              command: fmt
-              args: -- --check
-          - toolchain: stable
-            command:
-              name: Lint
-              command: clippy
-              args: --all-features --tests --benches -- -D clippy::all
-          - toolchain: stable
-            command:
-              name: Doc
-              command: doc
-              args: --all-features --all
+            args: --all-features --bins --lib
+          - name: Format
+            command: fmt
+            args: -- --check
+          - name: Lint
+            command: clippy
+            args: --all-features --tests --benches -- -D clippy::all
+          - name: Doc
+            command: doc
+            args: --all-features --all
 
     steps:
       - uses: actions/checkout@v2
@@ -68,14 +61,23 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        toolchain: [beta, nightly, 1.56.1]
+        toolchain: [beta, nightly, 1.58.1]
         command:
           - name: Check
             command: check
             args: --all-features --all --all-targets
           - name: Test
             command: test
-            args: --all-features --bins
+            args: --all-features --bins --lib
+          - name: Test ignored
+            command: test
+            args: --all-features --bins --lib -- --ignored
+        include:
+          - toolchain: stable
+            command:
+              name: Test ignored
+              command: test
+              args: --all-features --bins --lib -- --ignored
 
     steps:
       - uses: actions/checkout@v2
@@ -160,3 +162,61 @@ jobs:
         with:
           command: test
           args: --manifest-path backend/rvoc-backend/Cargo.toml --test end_to_end
+
+  end_to_end_optional:
+    name: End to End (optional)
+    needs:
+      - build_test_format_lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - name: Docker pull
+        run: docker-compose -f backend/docker-compose.yml pull
+
+      - name: Docker layer cache
+        uses: satackey/action-docker-layer-caching@v0.0.11
+
+      - name: Docker compose build and up
+        run: docker-compose -f backend/docker-compose.yml up -d --build
+
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+          default: true
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v1
+        with:
+          key: ${{ runner.os }}-end_to_end
+          working-directory: backend/rvoc-backend
+
+      - name: Build tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --manifest-path backend/rvoc-backend/Cargo.toml --tests
+
+      - name: Docker ps
+        run: docker ps
+
+      - name: DB logs
+        run: docker logs backend_dev-db_1
+
+      - name: RVOC logs
+        run: docker logs backend_dev-rvoc_1
+
+      - name: RVOC inspect
+        run: docker container inspect backend_dev-rvoc_1
+
+      - name: End to end tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --manifest-path backend/rvoc-backend/Cargo.toml --test end_to_end -- --ignored

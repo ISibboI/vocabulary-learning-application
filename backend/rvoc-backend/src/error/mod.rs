@@ -58,6 +58,15 @@ pub enum RVocError {
     /// Cannot delete expired sessions.
     CannotDeleteExpiredSessions(WitherError),
 
+    /// Cannot delete a certain session id of a user.
+    CannotDeleteSession,
+
+    /// Cannot delete all session ids of a user but a given one.
+    CannotDeleteOtherSessions,
+
+    /// Cannot delete all sessions of a user.
+    CannotDeleteAllSessions,
+
     /// Did not find a free session id after the given amount of attempts.
     NoFreeSessionId {
         attempts: usize,

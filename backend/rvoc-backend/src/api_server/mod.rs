@@ -54,11 +54,30 @@ pub struct SignupCommand {
     pub email: String,
 }
 
+#[derive(Deserialize, Serialize, Debug)]
+#[serde(rename_all = "snake_case")]
+pub enum LogoutCommand {
+    /// Log out just from the session sending the command.
+    ThisSession,
+    /// Log out all sessions but the session sending the command.
+    AllOtherSessions,
+    /// Log out all sessions, including the session sending the command.
+    AllSessions,
+}
+
+/// A response to an API command.
+/// This struct contains the data sent in the response body
+/// as well as other data required to build the full HTTP response,
+/// such as the session used to create the session cookie.
 struct ApiResponse {
+    /// The data sent in the HTTP response body.
     pub data: ApiResponseData,
+    /// The session used to build the Set-Cookie header for the session cookie in the HTTP response.
     pub session: Session,
 }
 
+/// A response to an API command.
+/// This enum encodes the actual data sent in the HTTP response body.
 #[derive(Deserialize, Serialize, Debug, Eq, PartialEq)]
 #[serde(tag = "response_type", content = "data", rename_all = "snake_case")]
 pub enum ApiResponseData {
@@ -67,16 +86,26 @@ pub enum ApiResponseData {
     ListLanguages(Vec<Language>),
 }
 
+/// A response to a login command.
+/// This is for internal use only, it will be converted to [ApiResponseData] before responding.
 #[derive(Deserialize, Serialize, Debug)]
-#[serde(tag = "response_type", content = "data", rename_all = "snake_case")]
 pub enum LoginResponse {
     Ok { session: Session },
     Error,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
-#[serde(tag = "response_type", content = "data", rename_all = "snake_case")]
+/// A response to a signup command.
+/// This is for internal use only, it will be converted to [ApiResponseData] before responding.
+#[derive(Debug)]
 pub enum SignupResponse {
+    Ok,
+    Error,
+}
+
+/// A response to a logout command.
+/// This is for internal use only, it will be converted to [ApiResponseData] before responding.
+#[derive(Debug)]
+pub enum LogoutResponse {
     Ok,
     Error,
 }
@@ -120,9 +149,24 @@ pub async fn run_api_server(configuration: &Configuration, database: &Database) 
         .and(warp::body::json())
         .and_then(execute_signup);
 
+    // Build logout filter chain.
+    let cloned_configuration = configuration.clone();
+    let cloned_database = database.clone();
+    let api_logout = warp::post()
+        .and(warp::path!("api" / "logout"))
+        .and(warp::body::content_length_limit(1024))
+        .and(warp::any().map(move || cloned_configuration.clone()))
+        .and(warp::any().map(move || cloned_database.clone()))
+        .and(warp::cookie::optional(SESSION_COOKIE_NAME))
+        .and_then(check_authentication)
+        .untuple_one()
+        .and(warp::body::json())
+        .and_then(execute_logout);
+
     let api_filter = api_command
         .or(api_login)
         .or(api_signup)
+        .or(api_logout)
         .recover(handle_rejection);
 
     info!("Starting to serve API");
@@ -263,6 +307,33 @@ async fn execute_signup(
     }
 }
 
+async fn execute_logout(
+    _configuration: Configuration,
+    database: Database,
+    session: Session,
+    _user: User,
+    logout_command: LogoutCommand,
+) -> Result<impl Reply, Infallible> {
+    let (user, session) = match User::find_by_session_id(&database, session.session_id()).await {
+        Ok(user_and_session) => user_and_session,
+        Err(_) => return Ok(LogoutResponse::Error),
+    };
+
+    let logout_result = match logout_command {
+        LogoutCommand::ThisSession => user.delete_session(&session, &database).await,
+        LogoutCommand::AllOtherSessions => user.delete_other_sessions(&session, &database).await,
+        LogoutCommand::AllSessions => user.delete_all_sessions(&database).await,
+    };
+
+    Ok(match logout_result {
+        Ok(_) => LogoutResponse::Ok,
+        Err(error) => {
+            info!("Logout error: {error:?}");
+            LogoutResponse::Error
+        }
+    })
+}
+
 async fn handle_rejection(error: Rejection) -> Result<impl Reply, Infallible> {
     debug!("{:#?}", error);
 
@@ -347,19 +418,9 @@ impl Reply for LoginResponse {
         match self {
             LoginResponse::Ok { session } => {
                 let mut response = warp::reply::json(&ApiResponseData::Ok).into_response();
-                let cookie =
-                    CookieBuilder::new(SESSION_COOKIE_NAME, session.session_id().to_string())
-                        .secure(true)
-                        .http_only(true)
-                        .same_site(SameSite::Strict)
-                        .expires(Expiration::DateTime(
-                            SystemTime::from(session.expires().to_chrono()).into(),
-                        ))
-                        .finish();
-                response.headers_mut().append(
-                    SET_COOKIE,
-                    HeaderValue::try_from(cookie.to_string()).expect("invalid cookie string"),
-                );
+                response
+                    .headers_mut()
+                    .append(SET_COOKIE, create_session_cookie_header_value(&session));
                 response
             }
             LoginResponse::Error => {
@@ -375,6 +436,16 @@ impl Reply for SignupResponse {
         warp::reply::json(&match self {
             SignupResponse::Ok => ApiResponseData::Ok,
             SignupResponse::Error => ApiResponseData::Error("Signup error".to_string()),
+        })
+        .into_response()
+    }
+}
+
+impl Reply for LogoutResponse {
+    fn into_response(self) -> Response {
+        warp::reply::json(&match self {
+            LogoutResponse::Ok => ApiResponseData::Ok,
+            LogoutResponse::Error => ApiResponseData::Error("Logout error".to_string()),
         })
         .into_response()
     }
