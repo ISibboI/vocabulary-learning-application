@@ -1,16 +1,26 @@
 version: "3.5"
 services:
-  dev-db:
-    image: "mongo:4.4"
-    restart: "no"
-    ports:
-      - "127.0.0.1:27017:27017"
+  db:
+    image: "postgres:15.3"
+    restart: "always"
+    command: -c shared_buffers=256MB
     environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: test
-  dev-rvoc:
+      PGDATA: "/data"
+      POSTGRES_PASSWORD: "test-password"
+      POSTGRES_RVOC_PASSWORD: "rvoc-test-password"
+    volumes:
+      - ./data/postgres:/data
+      - ./postgres/init-rvoc-db.sh:/docker-entrypoint-initdb.d/init-rvoc-db.sh
+  shell:
     depends_on:
-      - "dev-db"
+      - "db"
+    image: "postgres:15.3"
+    restart: "always"
+    entrypoint: "sleep 1000000000"
+    stop_signal: SIGKILL
+  rvoc:
+    depends_on:
+      - "db"
     build:
       context: "rvoc-backend"
       args:
