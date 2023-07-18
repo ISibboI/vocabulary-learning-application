@@ -31,17 +31,18 @@
           src = craneLib.cleanCargoSource ./.;
           nativeBuildInputs = with pkgs; [rustToolchain pkg-config];
           buildInputs = with pkgs; [rustToolchain openssl];
+          developmentTools = with pkgs; [diesel-cli.override {sqliteSupport = false; mysqlSupport = false;}];
           commonArgs = {
             inherit src buildInputs nativeBuildInputs;
           };
           cargoArtifacts = craneLib.buildDepsOnly commonArgs;
           bin = craneLib.buildPackage(commonArgs // {inherit cargoArtifacts;});
           dockerImage = pkgs.dockerTools.streamLayeredImage {
-            name = "catscii";
+            name = "rvoc-backend";
             tag = "latest";
             contents = [bin pkgs.cacert];
             config = {
-              Cmd = ["${bin}/bin/catscii"];
+              Cmd = ["${bin}/bin/rvoc-backend"];
             };
           };
         in
@@ -52,7 +53,7 @@
             default = bin;
           };
           devShells.default = mkShell {
-            inputsFrom = [bin];
+            inputsFrom = [bin] ++ developmentTools;
             buildInputs = with pkgs; [dive];
           };
         }
