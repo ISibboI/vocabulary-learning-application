@@ -26,9 +26,9 @@
           pkgs = import nixpkgs {
             inherit system overlays;
           };
-          rustToolchain = pkgs.pkgsBuildHost.rust-bin.fromRustupToolchainFile ./rvoc-backend/rust-toolchain.toml;
+          rustToolchain = pkgs.pkgsBuildHost.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
           craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
-          src = craneLib.cleanCargoSource ./rvoc-backend;
+          src = craneLib.cleanCargoSource ./.;
           nativeBuildInputs = with pkgs; [rustToolchain pkg-config];
           buildInputs = with pkgs; [rustToolchain openssl];
           commonArgs = {

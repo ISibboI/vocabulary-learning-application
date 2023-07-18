@@ -1,3 +1,9 @@
 [workspace]
-
 members = ["backend/rvoc-backend"]
+
+[workspace.package]
+name = "vocabulary-learning-application"
+version = "0.0.1"
+edition = "2021"
+rust-version = "1.58.1"
+publish = false
