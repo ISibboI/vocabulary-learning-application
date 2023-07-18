@@ -53,8 +53,9 @@
             default = bin;
           };
           devShells.default = mkShell {
-            inputsFrom = [bin] ++ developmentTools;
+            inputsFrom = [bin];
             buildInputs = with pkgs; [dive];
+            packages = developmentTools;
           };
         }
       );
