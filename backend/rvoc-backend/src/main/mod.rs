@@ -1,30 +1,15 @@
-use crate::api_server::run_api_server;
 use crate::configuration::{parse_configuration, Configuration};
-use crate::database::connect_to_database;
 use crate::error::RVocResult;
-use log::{error, info, LevelFilter};
-use simplelog::{ColorChoice, Config, TermLogger, TerminalMode};
+use log::{error, info};
 use std::time::Duration;
 use tokio::runtime::Builder;
 
-fn init_logging() {
-    TermLogger::init(
-        LevelFilter::Debug,
-        Config::default(),
-        TerminalMode::Stdout,
-        ColorChoice::Auto,
-    )
-    .unwrap_or_else(|e| panic!("Cannot initialize logging: {:?}", e));
-    info!("Logging initialized");
-}
-
 pub fn main() {
-    init_logging();
     let configuration =
         parse_configuration().unwrap_or_else(|e| panic!("Cannot parse configuration: {:?}", e));
 
     info!("Building tokio runtime...");
-    let runtime = Builder::new_multi_thread()
+    let runtime = Builder::new_current_thread()
         .thread_name_fn(|| "rvoc".to_string())
         .worker_threads(configuration.tokio_worker_threads)
         .enable_all()
@@ -37,14 +22,14 @@ pub fn main() {
             .await
             .unwrap_or_else(|e| error!("Application error: {:#?}", e));
     });
-    info!("Tokio runtime returned, shutting down...");
-    runtime.shutdown_timeout(Duration::from_secs(configuration.tokio_shutdown_timeout));
+
+    info!("Tokio runtime returned, shutting down with timeout {}s...", configuration.tokio_shutdown_timeout_seconds);
+    runtime.shutdown_timeout(Duration::from_secs(configuration.tokio_shutdown_timeout_seconds));
     info!("Tokio runtime shut down successfully");
 
     info!("Terminated");
 }
 
-async fn run_rvoc_backend(configuration: &Configuration) -> RVocResult<()> {
-    let database = connect_to_database(configuration.clone()).await?;
-    run_api_server(configuration, &database).await
+async fn run_rvoc_backend(_configuration: &Configuration) -> RVocResult<()> {
+    todo!()
 }

@@ -23,7 +23,7 @@ pub struct ConfigurationInner {
         help = "The shutdown timeout for the tokio runtime in seconds",
         conflicts_with = "config-file"
     )]
-    pub tokio_shutdown_timeout: u64,
+    pub tokio_shutdown_timeout_seconds: u64,
 
     #[clap(
         long,
