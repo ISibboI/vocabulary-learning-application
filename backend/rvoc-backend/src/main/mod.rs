@@ -10,8 +10,6 @@ pub fn main() {
 
     info!("Building tokio runtime...");
     let runtime = Builder::new_current_thread()
-        .thread_name_fn(|| "rvoc".to_string())
-        .worker_threads(configuration.tokio_worker_threads)
         .enable_all()
         .build()
         .unwrap_or_else(|e| panic!("Cannot create tokio runtime: {:?}", e));
