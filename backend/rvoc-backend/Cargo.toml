@@ -12,22 +12,23 @@ name = "rvoc-backend"
 path = "src/bin.rs"
 
 [dependencies]
+# runtime
 tokio = {version = "1.29.1", features = []}
+
+# logging and telemetry
 log = "0.4.19"
 tracing = "0.1.37"
 tracing-subscriber = "0.3.17"
 tracing-opentelemetry = "0.19.0"
-clap = {version = "4.3.15", features = ["derive"]}
-serde = {version = "1.0.171", features = ["derive"]}
-futures = "0.3.28"
-toml = "0.7.6"
+
+# database
+diesel = "2.1.0"
+diesel-async = { version = "0.3.1", features = ["postgres"] }
+
+# login and secrets
 password-hash = "0.5.0"
 argon2 = "0.5.1"
 rand = "0.8.5"
-cookie = "0.17.0"
-chrono = "0.4.26"
 secstr = "0.5.1"
 
 [dev-dependencies]
-reqwest = {version = "0.11.18", features = ["blocking", "json", "cookies"]}
-serde_json = "1.0.103"
