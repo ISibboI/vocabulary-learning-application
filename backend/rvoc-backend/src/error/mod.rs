@@ -1,78 +1,39 @@
-use std::net::AddrParseError;
-use std::path::PathBuf;
+use std::{error::Error, ffi::OsString, fmt::Display};
 
 pub type RVocResult<T> = Result<T, RVocError>;
 
 #[derive(Debug)]
 pub enum RVocError {
-    // Wrapped errors
-    AddrParseError(AddrParseError),
-    IoError(std::io::Error),
-    TomlDeserializeError(toml::de::Error),
-    PasswordHashError(password_hash::Error),
-
-    // Custom errors
-    /// A config file was given, but the file extension is not supported.
-    UnsupportedConfigFileExtension(PathBuf),
-
-    /// A password passed to the application was too long.
-    PasswordTooLong {
-        /// The number of bytes in the given password.
-        password_bytes: usize,
-        /// The maximum allowed number of bytes.
-        max_bytes: usize,
+    MissingEnvironmentVariable {
+        key: String,
     },
 
-    /// The given session id has a length different to the configured one.
-    WrongSessionIdLength {
-        given_session_id_length: usize,
-        configured_session_id_length: usize,
-    },
-
-    /// The given string is not a valid session id (i.e. contains invalid characters).
-    InvalidSessionId(String),
-
-    /// The user is not authenticated.
-    NotAuthenticated,
-
-    /// Could not find the given login name.
-    LoginNameNotFound(String),
-
-    /// Cannot delete a certain session id of a user.
-    CannotDeleteSession,
-
-    /// Cannot delete all session ids of a user but a given one.
-    CannotDeleteOtherSessions,
-
-    /// Cannot delete all sessions of a user.
-    CannotDeleteAllSessions,
-
-    /// Did not find a free session id after the given amount of attempts.
-    NoFreeSessionId {
-        attempts: usize,
+    MalformedEnvironmentVariable {
+        key: String,
+        value: OsString,
+        cause: Box<dyn Error>,
     },
 }
 
-impl From<AddrParseError> for RVocError {
-    fn from(error: AddrParseError) -> Self {
-        Self::AddrParseError(error)
+impl Display for RVocError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RVocError::MissingEnvironmentVariable { key: name } => {
+                write!(f, "missing environment variable '{name}'")
+            }
+            RVocError::MalformedEnvironmentVariable { key, value, cause } => write!(
+                f,
+                "environment variable '{key}' has malformed value {value:?} caused by: {cause}"
+            ),
+        }
     }
 }
 
-impl From<std::io::Error> for RVocError {
-    fn from(error: std::io::Error) -> Self {
-        Self::IoError(error)
-    }
-}
-
-impl From<toml::de::Error> for RVocError {
-    fn from(error: toml::de::Error) -> Self {
-        Self::TomlDeserializeError(error)
-    }
-}
-
-impl From<password_hash::Error> for RVocError {
-    fn from(error: password_hash::Error) -> Self {
-        Self::PasswordHashError(error)
+impl Error for RVocError {
+    fn cause(&self) -> Option<&dyn Error> {
+        match self {
+            RVocError::MissingEnvironmentVariable { .. } => None,
+            RVocError::MalformedEnvironmentVariable { cause, .. } => Some(cause.as_ref()),
+        }
     }
 }
