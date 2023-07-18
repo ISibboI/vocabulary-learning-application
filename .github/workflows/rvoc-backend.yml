@@ -2,6 +2,9 @@ name: Rust Backend Tests and Lints
 
 on: [push, pull_request]
 
+env:
+  RUSTFLAGS: "-Dwarnings"
+
 jobs:
   precheck:
     name: Precheck Rust
