@@ -32,7 +32,7 @@
           src = craneLib.cleanCargoSource ./.;
           nativeBuildInputs = with pkgs; [rustToolchain pkg-config];
           buildInputs = with pkgs; [rustToolchain openssl];
-          developmentTools = with pkgs; [(diesel-cli.override {sqliteSupport = false; mysqlSupport = false;})];
+          developmentTools = with pkgs; [(diesel-cli.override {sqliteSupport = false; mysqlSupport = false;}) postgresql];
           commonArgs = {
             inherit src buildInputs nativeBuildInputs;
           };
@@ -57,6 +57,21 @@
             inputsFrom = [bin];
             buildInputs = with pkgs; [dive];
             packages = developmentTools;
+            shellHook = ''
+              export PGDATA=$PWD/backend/data/postgres_dev_data
+              export PGHOST=$PWD/backend/data/postgres_dev
+              export LOG_PATH=$PWD/backend/data/postgres_dev/LOG
+              export PGDATABASE=rvoc_dev
+              export DATABASE_URL="postgresql:///''${PGDATABASE}?host=$PGHOST"
+              if [ ! -d $PGHOST ]; then
+                mkdir -p $PGHOST
+              fi
+              if [ ! -d $PGDATA ]; then
+                echo 'Initializing postgresql database...'
+                initdb $PGDATA --auth=trust >/dev/null
+              fi
+              pg_ctl start -l $LOG_PATH -o "-c listen_addresses= -c unix_socket_directories=$PGHOST"
+            '';
           };
         }
       );
