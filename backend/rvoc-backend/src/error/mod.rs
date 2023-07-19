@@ -16,7 +16,11 @@ pub enum RVocError {
 
     DatabaseConnectionPoolCreation {
         cause: diesel_async::pooled_connection::deadpool::BuildError,
-    }
+    },
+
+    DatabaseMigration {
+        cause: Box<dyn Error>,
+    },
 }
 
 impl Display for RVocError {
@@ -29,7 +33,12 @@ impl Display for RVocError {
                 f,
                 "environment variable '{key}' has malformed value {value:?} caused by: {cause}"
             ),
-            RVocError::DatabaseConnectionPoolCreation { cause } => write!(f, "error creating the database connection pool: {cause}"),
+            RVocError::DatabaseConnectionPoolCreation { cause } => {
+                write!(f, "error creating the database connection pool: {cause}")
+            }
+            RVocError::DatabaseMigration { cause } => {
+                write!(f, "error executing the database migrations: {cause}")
+            }
         }
     }
 }
@@ -40,6 +49,7 @@ impl Error for RVocError {
             RVocError::MissingEnvironmentVariable { .. } => None,
             RVocError::MalformedEnvironmentVariable { cause, .. } => Some(cause.as_ref()),
             RVocError::DatabaseConnectionPoolCreation { cause } => Some(cause),
+            RVocError::DatabaseMigration { cause } => Some(cause.as_ref()),
         }
     }
 }

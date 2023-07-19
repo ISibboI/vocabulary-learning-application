@@ -1,7 +1,9 @@
-use crate::configuration::Configuration;
 use crate::error::RVocResult;
-use diesel_async::{AsyncPgConnection, pooled_connection::{deadpool::Pool, AsyncDieselConnectionManager}};
-use diesel_migrations::{EmbeddedMigrations, embed_migrations};
+use crate::{configuration::Configuration, error::RVocError};
+use diesel_async::{
+    pooled_connection::{deadpool::Pool, AsyncDieselConnectionManager},
+    AsyncPgConnection,
+};
 use log::{error, info};
 use tokio::runtime::Builder;
 
@@ -36,20 +38,43 @@ pub fn main() -> RVocResult<()> {
 }
 
 async fn run_rvoc_backend(configuration: &Configuration) -> RVocResult<()> {
-    // check for missing db migrations
+    run_migrations(configuration)?;
 
+    let _db_connection_pool = create_async_connection_pool(configuration).await?;
 
-    let db_connection_pool = create_async_connection_pool(configuration).await?;
-
-    todo!()
+    Ok(())
 }
 
-async fn create_async_connection_pool(configuration: &Configuration) -> RVocResult<Pool<AsyncPgConnection>> {
-    //let manager = AsyncDieselConnectionManager::<AsyncPgConnection>::new(std::str::from_utf8(configuration.postgres_url.unsecure()).expect("postgres_url should be utf8"));
-    //let pool = Pool::builder(manager).build()?;
+pub fn run_migrations(configuration: &Configuration) -> RVocResult<()> {
+    use diesel::Connection;
+    use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 
+    const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
+
+    // Needs to be a sync connection, because `diesel_migrations` does not support async yet,
+    // and `diesel_async` does not support migrations yet.
+    let mut conn = diesel::PgConnection::establish(
+        std::str::from_utf8(configuration.postgres_url.unsecure())
+            .expect("postgres_url should be utf8"),
+    )
+    .map_err(|error| RVocError::DatabaseMigration {
+        cause: Box::new(error),
+    })?;
+    info!("Running Database migrations (This may take a long time)...");
+    conn.run_pending_migrations(MIGRATIONS)
+        .map_err(|error| RVocError::DatabaseMigration { cause: error })?;
+    info!("Database migrations complete.");
+    Ok(())
+}
+
+async fn create_async_connection_pool(
+    configuration: &Configuration,
+) -> RVocResult<Pool<AsyncPgConnection>> {
     // create a new connection pool with the default config
-    let connection_manager = AsyncDieselConnectionManager::<diesel_async::AsyncPgConnection>::new(std::str::from_utf8(configuration.postgres_url.unsecure()).expect("postgres_url should be utf8"));
+    let connection_manager = AsyncDieselConnectionManager::<diesel_async::AsyncPgConnection>::new(
+        std::str::from_utf8(configuration.postgres_url.unsecure())
+            .expect("postgres_url should be utf8"),
+    );
     let pool = Pool::builder(connection_manager).build()?;
 
     Ok(pool)
