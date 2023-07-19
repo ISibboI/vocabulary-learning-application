@@ -39,6 +39,7 @@ fn read_env_var(key: &str) -> RVocResult<String> {
     })
 }
 
+#[allow(dead_code)]
 fn read_env_var_as_type<T: FromStr>(key: &str) -> RVocResult<T>
 where
     <T as FromStr>::Err: 'static + Error,
@@ -62,6 +63,7 @@ where
     }
 }
 
+#[allow(dead_code)]
 fn read_env_var_with_default(key: &str, default: impl Into<String>) -> RVocResult<String> {
     match std::env::var(key) {
         Ok(value) => Ok(value),
