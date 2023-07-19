@@ -16,7 +16,10 @@ impl Configuration {
     /// Read the configuration values from environment variables.
     pub fn from_environment() -> RVocResult<Self> {
         Ok(Self {
-            postgres_url: read_env_var_with_default_as_type("POSTGRES_RVOC_URL", "postgres://postgres@localhost/rvoc_dev".into())?,
+            postgres_url: read_env_var_with_default_as_type(
+                "POSTGRES_RVOC_URL",
+                "postgres://postgres@localhost/rvoc_dev".into(),
+            )?,
             shutdown_timeout: Duration::from_secs(read_env_var_with_default_as_type(
                 "RVOC_SHUTDOWN_TIMEOUT",
                 30,

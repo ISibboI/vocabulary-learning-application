@@ -1,4 +1,5 @@
 {
     "rust-analyzer.cargo.sysroot": "discover",
     "rust-analyzer.check.allTargets": true,
+    "editor.formatOnSave": true,
 }
