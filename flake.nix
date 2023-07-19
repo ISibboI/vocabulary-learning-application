@@ -22,6 +22,7 @@
     flake-utils.lib.eachDefaultSystem
       (system:
         let
+          system = "x86_64-linux";
           overlays = [(import rust-overlay)];
           pkgs = import nixpkgs {
             inherit system overlays;
@@ -31,7 +32,7 @@
           src = craneLib.cleanCargoSource ./.;
           nativeBuildInputs = with pkgs; [rustToolchain pkg-config];
           buildInputs = with pkgs; [rustToolchain openssl];
-          developmentTools = with pkgs; [diesel-cli.override {sqliteSupport = false; mysqlSupport = false;}];
+          developmentTools = with pkgs; [(diesel-cli.override {sqliteSupport = false; mysqlSupport = false;})];
           commonArgs = {
             inherit src buildInputs nativeBuildInputs;
           };
