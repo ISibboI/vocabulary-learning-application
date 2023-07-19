@@ -14,21 +14,10 @@ jobs:
       fail-fast: true
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Install toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          default: true
-
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v1
-        with:
-          working-directory: backend/rvoc-backend
+        uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: cargo check
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --manifest-path backend/rvoc-backend/Cargo.toml --bins --lib --tests
+        run: cargo check --bins --lib --tests
