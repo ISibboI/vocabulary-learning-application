@@ -5,11 +5,8 @@ use secstr::SecStr;
 
 /// The configuration of the application.
 pub struct Configuration {
-    /// The user to access postgres.
-    pub postgres_user: String,
-
-    /// The password to access postgres.
-    pub postgres_password: SecStr,
+    /// The url to access postgres.
+    pub postgres_url: SecStr,
 
     /// The amount of time to wait for processes to shutdown gracefully.
     pub shutdown_timeout: Duration,
@@ -19,8 +16,7 @@ impl Configuration {
     /// Read the configuration values from environment variables.
     pub fn from_environment() -> RVocResult<Self> {
         Ok(Self {
-            postgres_user: read_env_var_with_default("POSTGRES_USER", "rvoc")?,
-            postgres_password: read_env_var_as_type("POSTGRES_RVOC_PASSWORD")?,
+            postgres_url: read_env_var_with_default_as_type("POSTGRES_RVOC_URL", "postgres://postgres@localhost/rvoc_dev".into())?,
             shutdown_timeout: Duration::from_secs(read_env_var_with_default_as_type(
                 "RVOC_SHUTDOWN_TIMEOUT",
                 30,
