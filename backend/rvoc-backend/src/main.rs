@@ -71,9 +71,8 @@ pub async fn main() -> RVocResult<()> {
     Ok(())
 }
 
+#[instrument(err)]
 async fn run_rvoc_backend(configuration: &Configuration) -> RVocResult<()> {
-    setup_tracing_subscriber(configuration)?;
-
     let _db_connection_pool = setup_database(configuration).await?;
 
     Ok(())
