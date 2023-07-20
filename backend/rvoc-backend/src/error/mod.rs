@@ -14,6 +14,10 @@ pub enum RVocError {
         cause: Box<dyn Error>,
     },
 
+    SetupTracing {
+        cause: Box<dyn Error>,
+    },
+
     DatabaseConnectionPoolCreation {
         cause: diesel_async::pooled_connection::deadpool::BuildError,
     },
@@ -33,6 +37,7 @@ impl Display for RVocError {
                 f,
                 "environment variable '{key}' has malformed value {value:?} caused by: {cause}"
             ),
+            RVocError::SetupTracing { cause } => write!(f, "setting up tracing failed: {cause}"),
             RVocError::DatabaseConnectionPoolCreation { cause } => {
                 write!(f, "error creating the database connection pool: {cause}")
             }
@@ -48,6 +53,7 @@ impl Error for RVocError {
         match self {
             RVocError::MissingEnvironmentVariable { .. } => None,
             RVocError::MalformedEnvironmentVariable { cause, .. } => Some(cause.as_ref()),
+            RVocError::SetupTracing { cause } => Some(cause.as_ref()),
             RVocError::DatabaseConnectionPoolCreation { cause } => Some(cause),
             RVocError::DatabaseMigration { cause } => Some(cause.as_ref()),
         }

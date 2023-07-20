@@ -1,5 +1,5 @@
-use crate::configuration::Configuration;
 use crate::error::RVocResult;
+use crate::{configuration::Configuration, error::RVocError};
 use database::setup_database;
 use tracing::{error, info};
 
@@ -7,21 +7,31 @@ mod configuration;
 mod database;
 mod error;
 
-fn setup_tracing_subscriber() -> impl tracing::Subscriber {
-    use opentelemetry::sdk::export::trace::stdout;
+fn setup_tracing_subscriber() -> RVocResult<impl tracing::Subscriber> {
+    use tracing_subscriber::fmt::Layer;
     use tracing_subscriber::layer::SubscriberExt;
     use tracing_subscriber::Registry;
 
-    let tracer = stdout::new_pipeline().install_simple();
-    let telemetry = tracing_opentelemetry::layer().with_tracer(tracer);
-    Registry::default().with(telemetry)
+    let logging_layer = Layer::default().json().with_span_list(true);
+
+    let opentelemetry_jaeger_tracer = opentelemetry_jaeger::new_agent_pipeline()
+        .install_batch(opentelemetry::runtime::TokioCurrentThread)
+        .map_err(|error| RVocError::SetupTracing {
+            cause: Box::new(error),
+        })?;
+    let opentelemetry_jaeger_layer =
+        tracing_opentelemetry::layer().with_tracer(opentelemetry_jaeger_tracer);
+
+    Ok(Registry::default()
+        .with(opentelemetry_jaeger_layer)
+        .with(logging_layer))
 }
 
 pub fn main() -> RVocResult<()> {
     // Load configuration
     let configuration = Configuration::from_environment()?;
 
-    let subscriber = setup_tracing_subscriber();
+    let subscriber = setup_tracing_subscriber()?;
 
     tracing::subscriber::with_default(subscriber, || {
         info!("Building tokio runtime...");
