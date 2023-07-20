@@ -793,6 +793,7 @@ dependencies = [
  "diesel",
  "diesel-async",
  "diesel_migrations",
+ "opentelemetry",
  "password-hash",
  "rand",
  "secstr",
