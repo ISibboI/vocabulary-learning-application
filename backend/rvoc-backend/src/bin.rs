@@ -4,17 +4,22 @@ use diesel_async::{
     pooled_connection::{deadpool::Pool, AsyncDieselConnectionManager},
     AsyncPgConnection,
 };
-use tokio::runtime::Builder;
 use tracing::{error, info, instrument};
 
 mod configuration;
 mod error;
 
 pub fn main() -> RVocResult<()> {
+    // Load configuration
     let configuration = Configuration::from_environment()?;
 
+    // Setup tracing
+    tracing_subscriber::fmt()
+        .event_format(tracing_subscriber::fmt::format().json())
+        .init();
+
     info!("Building tokio runtime...");
-    let runtime = Builder::new_current_thread()
+    let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .unwrap_or_else(|e| panic!("Cannot create tokio runtime: {:?}", e));
