@@ -1,65 +1,78 @@
 use crate::error::RVocResult;
 use crate::{configuration::Configuration, error::RVocError};
 use database::setup_database;
-use tracing::{error, info};
+use tracing::info;
 
 mod configuration;
 mod database;
 mod error;
 
-fn setup_tracing_subscriber() -> RVocResult<impl tracing::Subscriber> {
+fn setup_tracing_subscriber(configuration: &Configuration) -> RVocResult<()> {
+    use opentelemetry::sdk::Resource;
+    use opentelemetry::KeyValue;
+    use opentelemetry_otlp::WithExportConfig;
+    use tracing::subscriber::set_global_default;
     use tracing_subscriber::fmt::Layer;
     use tracing_subscriber::layer::SubscriberExt;
     use tracing_subscriber::Registry;
 
     let logging_layer = Layer::default().json().with_span_list(true);
+    let subscriber = Registry::default().with(logging_layer);
 
-    let opentelemetry_jaeger_tracer = opentelemetry_jaeger::new_agent_pipeline()
-        .install_batch(opentelemetry::runtime::TokioCurrentThread)
-        .map_err(|error| RVocError::SetupTracing {
-            cause: Box::new(error),
-        })?;
-    let opentelemetry_jaeger_layer =
-        tracing_opentelemetry::layer().with_tracer(opentelemetry_jaeger_tracer);
+    let with_otel = if let Some(opentelemetry_url) = configuration.opentelemetry_url.as_ref() {
+        let tracer =
+            opentelemetry_otlp::new_pipeline()
+                .tracing()
+                .with_trace_config(opentelemetry::sdk::trace::config().with_resource(
+                    Resource::new(vec![KeyValue::new("service.name", "rvoc-backend")]),
+                ))
+                .with_exporter(
+                    opentelemetry_otlp::new_exporter()
+                        .tonic()
+                        .with_endpoint(opentelemetry_url),
+                )
+                .install_batch(opentelemetry::runtime::TokioCurrentThread)
+                .map_err(|error| RVocError::SetupTracing {
+                    cause: Box::new(error),
+                })?;
 
-    Ok(Registry::default()
-        .with(opentelemetry_jaeger_layer)
-        .with(logging_layer))
+        let otel_layer = tracing_opentelemetry::layer().with_tracer(tracer);
+
+        set_global_default(subscriber.with(otel_layer)).map(|_| true)
+    } else {
+        set_global_default(subscriber).map(|_| false)
+    }
+    .map_err(|error| RVocError::SetupTracing {
+        cause: Box::new(error),
+    })?;
+
+    info!(
+        "Set up tracing subscriber successfully {}",
+        if with_otel {
+            "including opentelemetry"
+        } else {
+            "without opentelemetry"
+        }
+    );
+
+    Ok(())
 }
 
-pub fn main() -> RVocResult<()> {
+#[tokio::main(flavor = "current_thread")]
+pub async fn main() -> RVocResult<()> {
     // Load configuration
     let configuration = Configuration::from_environment()?;
 
-    let subscriber = setup_tracing_subscriber()?;
+    setup_tracing_subscriber(&configuration)?;
 
-    tracing::subscriber::with_default(subscriber, || {
-        info!("Building tokio runtime...");
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap_or_else(|e| panic!("Cannot create tokio runtime: {:?}", e));
-        info!("Built tokio runtime");
-        info!("Entering tokio runtime...");
-        runtime.block_on(async {
-            run_rvoc_backend(&configuration)
-                .await
-                .unwrap_or_else(|e| error!("Application error: {:#?}", e));
-        });
+    run_rvoc_backend(&configuration).await?;
 
-        info!(
-            "Tokio runtime returned, shutting down with timeout {}s...",
-            configuration.shutdown_timeout.as_secs_f32(),
-        );
-        runtime.shutdown_timeout(configuration.shutdown_timeout);
-        info!("Tokio runtime shut down successfully");
-
-        info!("Terminated");
-        Ok(())
-    })
+    Ok(())
 }
 
 async fn run_rvoc_backend(configuration: &Configuration) -> RVocResult<()> {
+    setup_tracing_subscriber(configuration)?;
+
     let _db_connection_pool = setup_database(configuration).await?;
 
     Ok(())

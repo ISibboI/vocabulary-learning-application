@@ -9,6 +9,9 @@ pub struct Configuration {
     /// The url to access postgres.
     pub postgres_url: SecStr,
 
+    /// The url to send opentelemetry to.
+    pub opentelemetry_url: Option<String>,
+
     /// The amount of time to wait for processes to shutdown gracefully.
     pub shutdown_timeout: Duration,
 }
@@ -21,6 +24,7 @@ impl Configuration {
                 "POSTGRES_RVOC_URL",
                 "postgres://postgres@localhost/rvoc_dev".into(),
             )?,
+            opentelemetry_url: read_optional_env_var("OPENTELEMETRY_URL")?,
             shutdown_timeout: Duration::from_secs(read_env_var_with_default_as_type(
                 "RVOC_SHUTDOWN_TIMEOUT",
                 30,
@@ -41,6 +45,18 @@ fn read_env_var(key: &str) -> RVocResult<String> {
             cause: Box::new(VarError::NotUnicode(value)),
         },
     })
+}
+
+fn read_optional_env_var(key: &str) -> RVocResult<Option<String>> {
+    match std::env::var(key) {
+        Ok(value) => Ok(Some(value)),
+        Err(VarError::NotPresent) => Ok(None),
+        Err(VarError::NotUnicode(value)) => Err(RVocError::MalformedEnvironmentVariable {
+            key: key.to_string(),
+            value: value.clone(),
+            cause: Box::new(VarError::NotUnicode(value)),
+        }),
+    }
 }
 
 #[allow(dead_code)]
