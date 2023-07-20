@@ -10,13 +10,7 @@ mod configuration;
 mod error;
 
 fn setup_tracing() {
-    use tracing_subscriber::fmt::format::FmtSpan;
-
-    tracing_subscriber::fmt()
-        .json()
-        .with_span_list(true)
-        .with_span_events(FmtSpan::FULL)
-        .init();
+    tracing_subscriber::fmt().json().with_span_list(true).init();
 }
 
 pub fn main() -> RVocResult<()> {
