@@ -4,8 +4,8 @@ use diesel_async::{
     pooled_connection::{deadpool::Pool, AsyncDieselConnectionManager},
     AsyncPgConnection,
 };
-use log::{error, info};
 use tokio::runtime::Builder;
+use tracing::{error, info};
 
 mod configuration;
 mod error;
