@@ -9,7 +9,7 @@ publish = false
 
 [[bin]]
 name = "rvoc-backend"
-path = "src/bin.rs"
+path = "src/main.rs"
 
 [dependencies]
 # runtime
