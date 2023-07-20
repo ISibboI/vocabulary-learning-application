@@ -5,7 +5,7 @@ use diesel_async::{
     AsyncPgConnection,
 };
 use tokio::runtime::Builder;
-use tracing::{error, info};
+use tracing::{error, info, instrument};
 
 mod configuration;
 mod error;
@@ -45,6 +45,7 @@ async fn run_rvoc_backend(configuration: &Configuration) -> RVocResult<()> {
     Ok(())
 }
 
+#[instrument]
 pub fn run_migrations(configuration: &Configuration) -> RVocResult<()> {
     use diesel::Connection;
     use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
@@ -67,6 +68,7 @@ pub fn run_migrations(configuration: &Configuration) -> RVocResult<()> {
     Ok(())
 }
 
+#[instrument]
 async fn create_async_connection_pool(
     configuration: &Configuration,
 ) -> RVocResult<Pool<AsyncPgConnection>> {

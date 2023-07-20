@@ -4,6 +4,7 @@ use crate::error::{RVocError, RVocResult};
 use secstr::SecStr;
 
 /// The configuration of the application.
+#[derive(Debug)]
 pub struct Configuration {
     /// The url to access postgres.
     pub postgres_url: SecStr,
