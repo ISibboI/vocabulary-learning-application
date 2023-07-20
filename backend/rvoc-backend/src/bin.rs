@@ -9,14 +9,22 @@ use tracing::{error, info, instrument};
 mod configuration;
 mod error;
 
+fn setup_tracing() {
+    use tracing_subscriber::fmt::format;
+    use tracing_subscriber::fmt::format::FmtSpan;
+
+    tracing_subscriber::fmt()
+        .event_format(format().json())
+        .with_span_events(FmtSpan::NEW)
+        .with_span_events(FmtSpan::CLOSE)
+        .init();
+}
+
 pub fn main() -> RVocResult<()> {
     // Load configuration
     let configuration = Configuration::from_environment()?;
 
-    // Setup tracing
-    tracing_subscriber::fmt()
-        .event_format(tracing_subscriber::fmt::format().json())
-        .init();
+    setup_tracing();
 
     info!("Building tokio runtime...");
     let runtime = tokio::runtime::Builder::new_current_thread()
@@ -59,6 +67,7 @@ pub fn run_migrations(configuration: &Configuration) -> RVocResult<()> {
 
     // Needs to be a sync connection, because `diesel_migrations` does not support async yet,
     // and `diesel_async` does not support migrations yet.
+    //info!("")
     let mut conn = diesel::PgConnection::establish(
         std::str::from_utf8(configuration.postgres_url.unsecure())
             .expect("postgres_url should be utf8"),
