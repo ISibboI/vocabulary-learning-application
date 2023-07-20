@@ -11,7 +11,7 @@ mod error;
 
 fn setup_tracing() {
     use tracing_subscriber::fmt::format::FmtSpan;
-    
+
     tracing_subscriber::fmt()
         .json()
         .with_span_list(true)
@@ -57,7 +57,7 @@ async fn run_rvoc_backend(configuration: &Configuration) -> RVocResult<()> {
     Ok(())
 }
 
-#[instrument]
+#[instrument(err)]
 pub fn run_migrations(configuration: &Configuration) -> RVocResult<()> {
     use diesel::Connection;
     use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
@@ -66,7 +66,7 @@ pub fn run_migrations(configuration: &Configuration) -> RVocResult<()> {
 
     // Needs to be a sync connection, because `diesel_migrations` does not support async yet,
     // and `diesel_async` does not support migrations yet.
-    //info!("")
+    info!("Creating synchronous connection to database");
     let mut conn = diesel::PgConnection::establish(
         std::str::from_utf8(configuration.postgres_url.unsecure())
             .expect("postgres_url should be utf8"),
@@ -81,7 +81,7 @@ pub fn run_migrations(configuration: &Configuration) -> RVocResult<()> {
     Ok(())
 }
 
-#[instrument]
+#[instrument(err)]
 async fn create_async_connection_pool(
     configuration: &Configuration,
 ) -> RVocResult<Pool<AsyncPgConnection>> {
