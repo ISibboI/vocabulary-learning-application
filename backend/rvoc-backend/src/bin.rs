@@ -1,12 +1,13 @@
 use crate::error::RVocResult;
 use crate::{configuration::Configuration, error::RVocError};
 use database::setup_database;
-use tracing::info;
+use tracing::{info, instrument};
 
 mod configuration;
 mod database;
 mod error;
 
+#[instrument(err)]
 fn setup_tracing_subscriber(configuration: &Configuration) -> RVocResult<()> {
     use opentelemetry::sdk::Resource;
     use opentelemetry::KeyValue;
