@@ -22,7 +22,7 @@ impl Configuration {
         Ok(Self {
             postgres_url: read_env_var_with_default_as_type(
                 "POSTGRES_RVOC_URL",
-                "postgres://postgres@localhost/rvoc_dev".into(),
+                "postgres://rvoc@localhost/rvoc".into(),
             )?,
             opentelemetry_url: read_optional_env_var("OPENTELEMETRY_URL")?,
             shutdown_timeout: Duration::from_secs(read_env_var_with_default_as_type(
