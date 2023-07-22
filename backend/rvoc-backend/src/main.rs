@@ -1,13 +1,13 @@
 use crate::error::RVocResult;
 use crate::{configuration::Configuration, error::RVocError};
 use database::setup_database;
-use tracing::{info, instrument};
+use tracing::{debug, info, instrument};
 
 mod configuration;
 mod database;
 mod error;
 
-#[instrument(err)]
+#[instrument(err, skip(configuration))]
 fn setup_tracing_subscriber(configuration: &Configuration) -> RVocResult<()> {
     use opentelemetry::sdk::Resource;
     use opentelemetry::KeyValue;
@@ -71,8 +71,10 @@ pub async fn main() -> RVocResult<()> {
     Ok(())
 }
 
-#[instrument(err)]
+#[instrument(err, skip(configuration))]
 async fn run_rvoc_backend(configuration: &Configuration) -> RVocResult<()> {
+    debug!("Running rvoc backend with configuration: {configuration:#?}");
+
     let _db_connection_pool = setup_database(configuration).await?;
 
     Ok(())

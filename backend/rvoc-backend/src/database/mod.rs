@@ -14,7 +14,7 @@ pub async fn setup_database(configuration: &Configuration) -> RVocResult<Pool<As
     create_async_connection_pool(configuration).await
 }
 
-#[instrument(err)]
+#[instrument(err, skip(configuration))]
 fn run_migrations(configuration: &Configuration) -> RVocResult<()> {
     use diesel::Connection;
     use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
@@ -38,7 +38,7 @@ fn run_migrations(configuration: &Configuration) -> RVocResult<()> {
     Ok(())
 }
 
-#[instrument(err)]
+#[instrument(err, skip(configuration))]
 async fn create_async_connection_pool(
     configuration: &Configuration,
 ) -> RVocResult<Pool<AsyncPgConnection>> {
