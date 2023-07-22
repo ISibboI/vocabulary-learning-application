@@ -62,7 +62,7 @@
               export PGHOST=$PWD/backend/data/postgres_dev
               export LOG_PATH=$PWD/backend/data/postgres_dev/LOG
               export PGDATABASE=rvoc_dev
-              export DATABASE_URL="postgresql:///''${PGDATABASE}?host=$PGHOST"
+              export POSTGRES_RVOC_URL="postgresql:///''${PGDATABASE}?host=$PGHOST"
               if [ ! -d $PGHOST ]; then
                 mkdir -p $PGHOST
               fi
@@ -74,5 +74,6 @@
             '';
           };
         }
+
       );
 }
