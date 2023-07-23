@@ -6,6 +6,7 @@ use tracing::{debug, info, instrument};
 mod configuration;
 mod database;
 mod error;
+mod schema;
 
 #[instrument(err, skip(configuration))]
 fn setup_tracing_subscriber(configuration: &Configuration) -> RVocResult<()> {
