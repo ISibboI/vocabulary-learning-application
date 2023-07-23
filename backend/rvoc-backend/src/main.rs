@@ -1,5 +1,6 @@
 use crate::error::RVocResult;
 use crate::{configuration::Configuration, error::RVocError};
+use clap::Parser;
 use database::setup_database;
 use tracing::{debug, info, instrument};
 
@@ -7,6 +8,17 @@ mod configuration;
 mod database;
 mod error;
 mod schema;
+
+/// Decide how to run the application.
+/// This should only be used internally for code that does not support async,
+/// and hence should be run as subprocess.
+#[derive(Parser, Debug)]
+enum Cli {
+    /// Run the web API, this is the only variant that should be called by the user.
+    Web,
+    /// Update the wiktionary data.
+    UpdateWiktionary,
+}
 
 #[instrument(err, skip(configuration))]
 fn setup_tracing_subscriber(configuration: &Configuration) -> RVocResult<()> {
@@ -62,8 +74,10 @@ fn setup_tracing_subscriber(configuration: &Configuration) -> RVocResult<()> {
 
 #[tokio::main(flavor = "current_thread")]
 pub async fn main() -> RVocResult<()> {
-    // Load configuration
+    // Load configuration & CLI
     let configuration = Configuration::from_environment()?;
+    let cli = Cli::parse();
+    debug!("Cli arguments: {cli:#?}");
 
     setup_tracing_subscriber(&configuration)?;
 
