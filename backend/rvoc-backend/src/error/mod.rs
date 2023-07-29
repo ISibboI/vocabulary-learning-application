@@ -71,7 +71,9 @@ impl Display for RVocError {
             RVocError::DownloadLanguage { cause } => {
                 write!(f, "error downloading language: {cause}")
             }
-            RVocError::DeleteOldWiktionaryDumps { cause } => write!(f, "error deleting old wiktionary dumps: {cause}"),
+            RVocError::DeleteOldWiktionaryDumps { cause } => {
+                write!(f, "error deleting old wiktionary dumps: {cause}")
+            }
         }
     }
 }
