@@ -2452,9 +2452,9 @@ dependencies = [
 
 [[package]]
 name = "wiktionary-dump-parser"
-version = "0.3.2"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b41c8887a894c6774ba4d852d810c1240089af5273fef4f7a4a7d644b4fc34a"
+checksum = "ccd867645f211d61e6aa4115a222335208a1732fa80ab5327e16c7e6b3e0a15f"
 dependencies = [
  "bzip2",
  "clap",

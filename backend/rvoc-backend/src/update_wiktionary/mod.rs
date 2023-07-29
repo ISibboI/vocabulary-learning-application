@@ -24,7 +24,7 @@ pub async fn run_update_wiktionary(configuration: &Configuration) -> RVocResult<
             })?;
     }
 
-    wiktionary_dump_parser::download_language(
+    let new_language_file = wiktionary_dump_parser::download_language(
         &DumpBaseUrl::Default,
         &LanguageCode::English,
         target_directory,
@@ -34,6 +34,8 @@ pub async fn run_update_wiktionary(configuration: &Configuration) -> RVocResult<
     .map_err(|error| RVocError::DownloadLanguage {
         cause: Box::new(error),
     })?;
+
+    // TODO remove old language files
 
     Ok(())
 }
