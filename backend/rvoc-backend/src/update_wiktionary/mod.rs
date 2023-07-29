@@ -36,7 +36,6 @@ pub async fn run_update_wiktionary(configuration: &Configuration) -> RVocResult<
         cause: Box::new(error),
     })?;
 
-    // TODO remove old dump files
     if let Some(dump_file_base_directory) = new_dump_file.ancestors().nth(2) {
         debug!("Removing old dump files");
         let new_directory_name = new_dump_file.parent().unwrap().file_name().unwrap();
