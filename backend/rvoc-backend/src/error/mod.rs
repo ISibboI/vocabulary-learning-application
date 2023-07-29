@@ -38,6 +38,10 @@ pub enum RVocError {
     DownloadLanguage {
         cause: Box<dyn Error>,
     },
+
+    DeleteOldWiktionaryDumps {
+        cause: Box<dyn Error>,
+    },
 }
 
 impl Display for RVocError {
@@ -67,6 +71,7 @@ impl Display for RVocError {
             RVocError::DownloadLanguage { cause } => {
                 write!(f, "error downloading language: {cause}")
             }
+            RVocError::DeleteOldWiktionaryDumps { cause } => write!(f, "error deleting old wiktionary dumps: {cause}"),
         }
     }
 }
@@ -82,6 +87,7 @@ impl Error for RVocError {
             RVocError::DataDirectoryIsFile { .. } => None,
             RVocError::CreateDirectory { cause, .. } => Some(cause.as_ref()),
             RVocError::DownloadLanguage { cause } => Some(cause.as_ref()),
+            RVocError::DeleteOldWiktionaryDumps { cause } => Some(cause.as_ref()),
         }
     }
 }
