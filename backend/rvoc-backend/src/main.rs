@@ -3,11 +3,13 @@ use crate::{configuration::Configuration, error::RVocError};
 use clap::Parser;
 use database::setup_database;
 use tracing::{debug, info, instrument};
+use update_wiktionary::run_update_wiktionary;
 
 mod configuration;
 mod database;
 mod error;
 mod schema;
+mod update_wiktionary;
 
 /// Decide how to run the application.
 /// This should only be used internally for code that does not support async,
@@ -81,7 +83,10 @@ pub async fn main() -> RVocResult<()> {
 
     setup_tracing_subscriber(&configuration)?;
 
-    run_rvoc_backend(&configuration).await?;
+    match cli {
+        Cli::Web => run_rvoc_backend(&configuration).await?,
+        Cli::UpdateWiktionary => run_update_wiktionary(&configuration).await?,
+    }
 
     Ok(())
 }

@@ -31,6 +31,9 @@ diesel = {version = "2.1.0", features = ["postgres"]}
 diesel_migrations = "2.1.0"
 diesel-async = { version = "0.3.2", features = ["postgres", "deadpool"] }
 
+# wiktionary connection
+wiktionary-dump-parser = "0.3.2"
+
 # login and secrets
 password-hash = "0.5.0"
 argon2 = "0.5.1"

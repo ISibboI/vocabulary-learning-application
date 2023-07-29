@@ -1,4 +1,4 @@
-use std::{env::VarError, error::Error, str::FromStr, time::Duration};
+use std::{env::VarError, error::Error, path::PathBuf, str::FromStr, time::Duration};
 
 use crate::error::{RVocError, RVocResult};
 use secstr::SecStr;
@@ -14,6 +14,9 @@ pub struct Configuration {
 
     /// The amount of time to wait for processes to shutdown gracefully.
     pub shutdown_timeout: Duration,
+
+    /// The base directory where wiktionary dumps are stored in.
+    pub wiktionary_temporary_data_directory: PathBuf,
 }
 
 impl Configuration {
@@ -22,13 +25,17 @@ impl Configuration {
         Ok(Self {
             postgres_url: read_env_var_with_default_as_type(
                 "POSTGRES_RVOC_URL",
-                "postgres://rvoc@localhost/rvoc".into(),
+                "postgres://rvoc@localhost/rvoc",
             )?,
             opentelemetry_url: read_optional_env_var("OPENTELEMETRY_URL")?,
             shutdown_timeout: Duration::from_secs(read_env_var_with_default_as_type(
                 "RVOC_SHUTDOWN_TIMEOUT",
-                30,
+                30u64,
             )?),
+            wiktionary_temporary_data_directory: read_env_var_with_default_as_type(
+                "WIKTIONARY_TEMPORARY_DATA_DIRECTORY",
+                "data",
+            )?,
         })
     }
 }
@@ -96,7 +103,7 @@ fn read_env_var_with_default(key: &str, default: impl Into<String>) -> RVocResul
     }
 }
 
-fn read_env_var_with_default_as_type<T: FromStr>(key: &str, default: T) -> RVocResult<T>
+fn read_env_var_with_default_as_type<T: FromStr>(key: &str, default: impl Into<T>) -> RVocResult<T>
 where
     <T as FromStr>::Err: 'static + Error,
 {
@@ -108,7 +115,7 @@ where
                 value: value.into(),
                 cause: Box::new(error),
             }),
-        Err(VarError::NotPresent) => Ok(default),
+        Err(VarError::NotPresent) => Ok(default.into()),
         Err(VarError::NotUnicode(value)) => Err(RVocError::MalformedEnvironmentVariable {
             key: key.to_string(),
             value: value.clone(),

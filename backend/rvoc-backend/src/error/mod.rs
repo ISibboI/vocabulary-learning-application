@@ -1,4 +1,4 @@
-use std::{error::Error, ffi::OsString, fmt::Display};
+use std::{error::Error, ffi::OsString, fmt::Display, path::PathBuf};
 
 pub type RVocResult<T> = Result<T, RVocError>;
 
@@ -25,6 +25,19 @@ pub enum RVocError {
     DatabaseMigration {
         cause: Box<dyn Error>,
     },
+
+    DataDirectoryIsFile {
+        path: PathBuf,
+    },
+
+    CreateDirectory {
+        path: PathBuf,
+        cause: Box<dyn Error>,
+    },
+
+    DownloadLanguage {
+        cause: Box<dyn Error>,
+    },
 }
 
 impl Display for RVocError {
@@ -44,6 +57,16 @@ impl Display for RVocError {
             RVocError::DatabaseMigration { cause } => {
                 write!(f, "error executing the database migrations: {cause}")
             }
+            RVocError::DataDirectoryIsFile { path } => write!(
+                f,
+                "data directory should be a directory, but is a file: {path:?}"
+            ),
+            RVocError::CreateDirectory { path, cause } => {
+                write!(f, "error creating directory {path:?}: {cause}")
+            }
+            RVocError::DownloadLanguage { cause } => {
+                write!(f, "error downloading language: {cause}")
+            }
         }
     }
 }
@@ -56,6 +79,9 @@ impl Error for RVocError {
             RVocError::SetupTracing { cause } => Some(cause.as_ref()),
             RVocError::DatabaseConnectionPoolCreation { cause } => Some(cause),
             RVocError::DatabaseMigration { cause } => Some(cause.as_ref()),
+            RVocError::DataDirectoryIsFile { .. } => None,
+            RVocError::CreateDirectory { cause, .. } => Some(cause.as_ref()),
+            RVocError::DownloadLanguage { cause } => Some(cause.as_ref()),
         }
     }
 }
