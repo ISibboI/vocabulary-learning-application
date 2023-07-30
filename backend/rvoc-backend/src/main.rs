@@ -1,7 +1,7 @@
 use crate::error::RVocResult;
 use crate::{configuration::Configuration, error::RVocError};
 use clap::Parser;
-use database::setup_database;
+use database::create_async_database_connection_pool;
 use tracing::{debug, info, instrument};
 use update_wiktionary::run_update_wiktionary;
 
@@ -49,7 +49,7 @@ fn setup_tracing_subscriber(configuration: &Configuration) -> RVocResult<()> {
                 )
                 .install_batch(opentelemetry::runtime::TokioCurrentThread)
                 .map_err(|error| RVocError::SetupTracing {
-                    cause: Box::new(error),
+                    source: Box::new(error),
                 })?;
 
         let otel_layer = tracing_opentelemetry::layer().with_tracer(tracer);
@@ -59,7 +59,7 @@ fn setup_tracing_subscriber(configuration: &Configuration) -> RVocResult<()> {
         set_global_default(subscriber).map(|_| false)
     }
     .map_err(|error| RVocError::SetupTracing {
-        cause: Box::new(error),
+        source: Box::new(error),
     })?;
 
     info!(
@@ -95,7 +95,7 @@ pub async fn main() -> RVocResult<()> {
 async fn run_rvoc_backend(configuration: &Configuration) -> RVocResult<()> {
     debug!("Running rvoc backend with configuration: {configuration:#?}");
 
-    let _db_connection_pool = setup_database(configuration).await?;
+    let _db_connection_pool = create_async_database_connection_pool(configuration).await?;
 
     Ok(())
 }

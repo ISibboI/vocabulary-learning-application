@@ -49,7 +49,7 @@ fn read_env_var(key: &str) -> RVocResult<String> {
         VarError::NotUnicode(value) => RVocError::MalformedEnvironmentVariable {
             key: key.to_string(),
             value: value.clone(),
-            cause: Box::new(VarError::NotUnicode(value)),
+            source: Box::new(VarError::NotUnicode(value)),
         },
     })
 }
@@ -61,7 +61,7 @@ fn read_optional_env_var(key: &str) -> RVocResult<Option<String>> {
         Err(VarError::NotUnicode(value)) => Err(RVocError::MalformedEnvironmentVariable {
             key: key.to_string(),
             value: value.clone(),
-            cause: Box::new(VarError::NotUnicode(value)),
+            source: Box::new(VarError::NotUnicode(value)),
         }),
     }
 }
@@ -77,7 +77,7 @@ where
             .map_err(|error| RVocError::MalformedEnvironmentVariable {
                 key: key.to_string(),
                 value: value.into(),
-                cause: Box::new(error),
+                source: Box::new(error),
             }),
         Err(VarError::NotPresent) => Err(RVocError::MissingEnvironmentVariable {
             key: key.to_string(),
@@ -85,7 +85,7 @@ where
         Err(VarError::NotUnicode(value)) => Err(RVocError::MalformedEnvironmentVariable {
             key: key.to_string(),
             value: value.clone(),
-            cause: Box::new(VarError::NotUnicode(value)),
+            source: Box::new(VarError::NotUnicode(value)),
         }),
     }
 }
@@ -98,7 +98,7 @@ fn read_env_var_with_default(key: &str, default: impl Into<String>) -> RVocResul
         Err(VarError::NotUnicode(value)) => Err(RVocError::MalformedEnvironmentVariable {
             key: key.to_string(),
             value: value.clone(),
-            cause: Box::new(VarError::NotUnicode(value)),
+            source: Box::new(VarError::NotUnicode(value)),
         }),
     }
 }
@@ -113,13 +113,13 @@ where
             .map_err(|error| RVocError::MalformedEnvironmentVariable {
                 key: key.to_string(),
                 value: value.into(),
-                cause: Box::new(error),
+                source: Box::new(error),
             }),
         Err(VarError::NotPresent) => Ok(default.into()),
         Err(VarError::NotUnicode(value)) => Err(RVocError::MalformedEnvironmentVariable {
             key: key.to_string(),
             value: value.clone(),
-            cause: Box::new(VarError::NotUnicode(value)),
+            source: Box::new(VarError::NotUnicode(value)),
         }),
     }
 }

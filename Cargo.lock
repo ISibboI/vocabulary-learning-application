@@ -1596,6 +1596,7 @@ dependencies = [
  "password-hash",
  "rand",
  "secstr",
+ "thiserror",
  "tokio",
  "tracing",
  "tracing-opentelemetry",

@@ -1,5 +1,9 @@
-use tokio::fs;
+use std::path::PathBuf;
 
+use tokio::fs;
+use wiktionary_dump_parser::parser::parse_dump_file;
+
+use crate::database::create_sync_database_connection;
 use crate::error::RVocResult;
 use crate::{configuration::Configuration, error::RVocError};
 use tracing::{debug, error, instrument};
@@ -9,6 +13,30 @@ use wiktionary_dump_parser::{language_code::LanguageCode, urls::DumpBaseUrl};
 pub async fn run_update_wiktionary(configuration: &Configuration) -> RVocResult<()> {
     debug!("Updating wiktionary data with configuration: {configuration:#?}");
 
+    let new_dump_file = update_wiktionary_dump_files(configuration).await?;
+    // expect the extension to be ".tar.bz2", and replace it with ".log"
+    let error_log = new_dump_file.with_extension("").with_extension(".log");
+    let _database_connection = create_sync_database_connection(configuration)?;
+
+    debug!("Parsing wiktionary dump file {new_dump_file:?}");
+    parse_dump_file(
+        new_dump_file,
+        Option::<PathBuf>::None,
+        |_| todo!(),
+        error_log,
+        false,
+    )
+    .await
+    .map_err(|error| RVocError::ParseWiktionaryDump {
+        source: Box::new(error),
+    })?;
+
+    Ok(())
+}
+
+#[instrument(err, skip(configuration))]
+async fn update_wiktionary_dump_files(configuration: &Configuration) -> RVocResult<PathBuf> {
+    debug!("Updating wiktionary dump files");
     let target_directory = &configuration.wiktionary_temporary_data_directory;
     if !target_directory.exists() {
         if !target_directory.is_dir() {
@@ -21,7 +49,7 @@ pub async fn run_update_wiktionary(configuration: &Configuration) -> RVocResult<
             .await
             .map_err(|error| RVocError::CreateDirectory {
                 path: target_directory.clone(),
-                cause: Box::new(error),
+                source: Box::new(error),
             })?;
     }
 
@@ -32,8 +60,8 @@ pub async fn run_update_wiktionary(configuration: &Configuration) -> RVocResult<
         10,
     )
     .await
-    .map_err(|error| RVocError::DownloadLanguage {
-        cause: Box::new(error),
+    .map_err(|error| RVocError::DownloadWiktionaryDump {
+        source: Box::new(error),
     })?;
 
     if let Some(dump_file_base_directory) = new_dump_file.ancestors().nth(2) {
@@ -44,7 +72,7 @@ pub async fn run_update_wiktionary(configuration: &Configuration) -> RVocResult<
             fs::read_dir(dump_file_base_directory)
                 .await
                 .map_err(|error| RVocError::DeleteOldWiktionaryDumps {
-                    cause: Box::new(error),
+                    source: Box::new(error),
                 })?;
         let mut deletables = Vec::new();
 
@@ -52,7 +80,7 @@ pub async fn run_update_wiktionary(configuration: &Configuration) -> RVocResult<
             .next_entry()
             .await
             .map_err(|error| RVocError::DeleteOldWiktionaryDumps {
-                cause: Box::new(error),
+                source: Box::new(error),
             })?
         {
             if entry.file_name() != new_directory_name {
@@ -76,5 +104,5 @@ pub async fn run_update_wiktionary(configuration: &Configuration) -> RVocResult<
         error!("New dump file has no base directory: {new_dump_file:?}");
     };
 
-    Ok(())
+    Ok(new_dump_file)
 }
