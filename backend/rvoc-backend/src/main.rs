@@ -1,7 +1,7 @@
 use crate::error::RVocResult;
 use crate::{configuration::Configuration, error::RVocError};
 use clap::Parser;
-use database::create_async_database_connection_pool;
+use database::{create_async_database_connection_pool, has_missing_migrations, run_migrations};
 use tracing::{debug, info, instrument};
 use update_wiktionary::run_update_wiktionary;
 
@@ -20,6 +20,8 @@ enum Cli {
     Web,
     /// Update the wiktionary data.
     UpdateWiktionary,
+    /// Apply pending database migrations.
+    ApplyMigrations,
 }
 
 #[instrument(err, skip(configuration))]
@@ -86,6 +88,7 @@ pub async fn main() -> RVocResult<()> {
     match cli {
         Cli::Web => run_rvoc_backend(&configuration).await?,
         Cli::UpdateWiktionary => run_update_wiktionary(&configuration).await?,
+        Cli::ApplyMigrations => apply_pending_database_migrations(&configuration).await?,
     }
 
     Ok(())
@@ -96,6 +99,19 @@ async fn run_rvoc_backend(configuration: &Configuration) -> RVocResult<()> {
     debug!("Running rvoc backend with configuration: {configuration:#?}");
 
     let _db_connection_pool = create_async_database_connection_pool(configuration).await?;
+
+    Ok(())
+}
+
+#[instrument(err, skip(configuration))]
+async fn apply_pending_database_migrations(configuration: &Configuration) -> RVocResult<()> {
+    if has_missing_migrations(configuration)? {
+        info!("Executing missing database migrations");
+        run_migrations(configuration)?;
+        info!("Success!");
+    } else {
+        info!("No missing migrations");
+    }
 
     Ok(())
 }
