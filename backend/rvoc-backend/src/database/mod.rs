@@ -2,9 +2,11 @@ use crate::{
     configuration::Configuration,
     error::{RVocError, RVocResult},
 };
-use diesel::Connection;
+use diesel::PgConnection;
 use diesel_async::{pooled_connection::deadpool::Pool, AsyncPgConnection};
 use tracing::{debug, info, instrument};
+
+pub mod model;
 
 const MIGRATIONS: diesel_migrations::EmbeddedMigrations = diesel_migrations::embed_migrations!();
 
@@ -24,9 +26,7 @@ pub async fn create_async_database_connection_pool(
 /// Create a sync connection to the database.
 ///
 /// If there are pending database migrations, this method returns an error.
-pub fn create_sync_database_connection(
-    configuration: &Configuration,
-) -> RVocResult<impl Connection> {
+pub fn create_sync_database_connection(configuration: &Configuration) -> RVocResult<PgConnection> {
     if has_missing_migrations(configuration)? {
         Err(RVocError::PendingDatabaseMigrations)
     } else {
@@ -41,15 +41,10 @@ pub fn has_missing_migrations(configuration: &Configuration) -> RVocResult<bool>
     // Needs to be a sync connection, because `diesel_migrations` does not support async yet,
     // and `diesel_async` does not support migrations yet.
     debug!("Creating synchronous connection to database");
-    let mut conn = diesel::PgConnection::establish(
-        std::str::from_utf8(configuration.postgres_url.unsecure())
-            .expect("postgres_url should be utf8"),
-    )
-    .map_err(|error| RVocError::DatabaseMigration {
-        source: Box::new(error),
-    })?;
+    let mut connection = create_sync_connection(configuration)?;
 
-    conn.has_pending_migration(MIGRATIONS)
+    connection
+        .has_pending_migration(MIGRATIONS)
         .map_err(|error| RVocError::DatabaseMigration { source: error })
 }
 
@@ -64,15 +59,10 @@ pub fn run_migrations(configuration: &Configuration) -> RVocResult<()> {
     // Needs to be a sync connection, because `diesel_migrations` does not support async yet,
     // and `diesel_async` does not support migrations yet.
     debug!("Creating synchronous connection to database");
-    let mut conn = diesel::PgConnection::establish(
-        std::str::from_utf8(configuration.postgres_url.unsecure())
-            .expect("postgres_url should be utf8"),
-    )
-    .map_err(|error| RVocError::DatabaseMigration {
-        source: Box::new(error),
-    })?;
+    let mut connection = create_sync_connection(configuration)?;
     info!("Running pending database migrations (this may take a long time)...");
-    conn.run_pending_migrations(MIGRATIONS)
+    connection
+        .run_pending_migrations(MIGRATIONS)
         .map_err(|error| RVocError::DatabaseMigration { source: error })?;
     info!("Database migrations complete");
     Ok(())
@@ -95,9 +85,11 @@ async fn create_async_connection_pool(
 }
 
 #[instrument(err, skip(configuration))]
-fn create_sync_connection(configuration: &Configuration) -> RVocResult<impl Connection> {
+fn create_sync_connection(configuration: &Configuration) -> RVocResult<PgConnection> {
+    use diesel::Connection;
+
     // create a new connection with the default config
-    let connection = diesel::pg::PgConnection::establish(
+    let connection = PgConnection::establish(
         std::str::from_utf8(configuration.postgres_url.unsecure())
             .expect("postgres_url should be utf8"),
     )

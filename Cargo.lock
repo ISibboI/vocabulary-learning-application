@@ -2453,9 +2453,9 @@ dependencies = [
 
 [[package]]
 name = "wiktionary-dump-parser"
-version = "0.4.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eeae01602de01a06821228cccc0736878c75a023e7ab47849bfee6ac4d64a40b"
+checksum = "c7ca0f5ce17a1666cba52efcd4fdceb2b56e9f35bebc8bf4a82a14bdd8c53174"
 dependencies = [
  "bzip2",
  "clap",
@@ -2474,6 +2474,7 @@ dependencies = [
  "serde_json",
  "sha1",
  "simplelog",
+ "thiserror",
  "tokio",
  "url",
  "wikitext-parser",

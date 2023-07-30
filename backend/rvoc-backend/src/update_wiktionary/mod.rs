@@ -1,9 +1,11 @@
 use std::path::PathBuf;
 
+use diesel::{Connection, Insertable, RunQueryDsl};
 use tokio::fs;
 use wiktionary_dump_parser::parser::parse_dump_file;
 
 use crate::database::create_sync_database_connection;
+use crate::database::model::{InsertLanguage, InsertWordType};
 use crate::error::RVocResult;
 use crate::{configuration::Configuration, error::RVocError};
 use tracing::{debug, error, instrument};
@@ -16,13 +18,31 @@ pub async fn run_update_wiktionary(configuration: &Configuration) -> RVocResult<
     let new_dump_file = update_wiktionary_dump_files(configuration).await?;
     // expect the extension to be ".tar.bz2", and replace it with ".log"
     let error_log = new_dump_file.with_extension("").with_extension(".log");
-    let _database_connection = create_sync_database_connection(configuration)?;
+    let mut database_connection = create_sync_database_connection(configuration)?;
 
     debug!("Parsing wiktionary dump file {new_dump_file:?}");
     parse_dump_file(
         new_dump_file,
         Option::<PathBuf>::None,
-        |_| todo!(),
+        |word| {
+            database_connection.transaction(|connection| {
+                InsertLanguage {
+                    english_name: word.language_english_name,
+                }
+                .insert_into(crate::schema::languages::table)
+                .on_conflict_do_nothing()
+                .execute(connection)?;
+
+                InsertWordType {
+                    english_name: word.word_type,
+                }
+                .insert_into(crate::schema::word_types::table)
+                .on_conflict_do_nothing()
+                .execute(connection)?;
+
+                todo!()
+            })
+        },
         error_log,
         false,
     )
