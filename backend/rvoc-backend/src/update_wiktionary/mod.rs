@@ -29,6 +29,8 @@ pub async fn run_update_wiktionary(configuration: &Configuration) -> RVocResult<
 
             let mut tries = 0;
             while word_buffer.len() >= configuration.wiktionary_dump_insertion_batch_size {
+                debug!("Inserting {} words into database", word_buffer.len());
+
                 tries += 1;
                 if tries > configuration.wiktionary_dump_insertion_maximum_retry_count {
                     return Err(Box::new(
