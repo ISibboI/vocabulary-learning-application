@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use diesel::{ExpressionMethods, NullableExpressionMethods, RunQueryDsl};
 use tokio::fs;
-use tracing::{debug, error, instrument, warn};
+use tracing::{debug, error, info, instrument, warn};
 use wiktionary_dump_parser::parser::parse_dump_file;
 use wiktionary_dump_parser::{language_code::LanguageCode, urls::DumpBaseUrl};
 
@@ -12,7 +12,8 @@ use crate::{configuration::Configuration, error::RVocError};
 
 #[instrument(err, skip(configuration))]
 pub async fn run_update_wiktionary(configuration: &Configuration) -> RVocResult<()> {
-    debug!("Updating wiktionary data with configuration: {configuration:#?}");
+    info!("Updating wiktionary data");
+    debug!("Configuration: {configuration:#?}");
 
     let new_dump_file = update_wiktionary_dump_files(configuration).await?;
     // expect the extension to be ".tar.bz2", and replace it with ".log"
@@ -133,6 +134,8 @@ pub async fn run_update_wiktionary(configuration: &Configuration) -> RVocResult<
     .map_err(|error| RVocError::ParseWiktionaryDump {
         source: Box::new(error),
     })?;
+
+    info!("Success!");
 
     Ok(())
 }
