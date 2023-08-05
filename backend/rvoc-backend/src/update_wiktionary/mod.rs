@@ -16,7 +16,7 @@ pub async fn run_update_wiktionary(configuration: &Configuration) -> RVocResult<
 
     let new_dump_file = update_wiktionary_dump_files(configuration).await?;
     // expect the extension to be ".tar.bz2", and replace it with ".log"
-    let error_log = new_dump_file.with_extension("").with_extension(".log");
+    let error_log = new_dump_file.with_extension("").with_extension("log");
     let mut database_connection = create_sync_database_connection(configuration)?;
 
     debug!("Parsing wiktionary dump file {new_dump_file:?}");
