@@ -140,18 +140,16 @@ async fn update_wiktionary_dump_files(configuration: &Configuration) -> RVocResu
     debug!("Updating wiktionary dump files");
     let target_directory = &configuration.wiktionary_temporary_data_directory;
     if !target_directory.exists() {
-        if !target_directory.is_dir() {
-            return Err(RVocError::DataDirectoryIsFile {
-                path: target_directory.to_owned(),
-            });
-        }
-
         fs::create_dir_all(&target_directory)
             .await
             .map_err(|error| RVocError::CreateDirectory {
                 path: target_directory.clone(),
                 source: Box::new(error),
             })?;
+    } else if !target_directory.is_dir() {
+        return Err(RVocError::DataDirectoryIsFile {
+            path: target_directory.to_owned(),
+        });
     }
 
     let new_dump_file = wiktionary_dump_parser::download_language(
