@@ -17,6 +17,12 @@ pub struct Configuration {
 
     /// The base directory where wiktionary dumps are stored in.
     pub wiktionary_temporary_data_directory: PathBuf,
+
+    /// The batch size to use when inserting words from wiktionary.
+    pub wiktionary_dump_insertion_batch_size: usize,
+
+    /// The maximum number of retries when the transaction that inserts words from wiktionary fails.
+    pub wiktionary_dump_insertion_maximum_retry_count: u64,
 }
 
 impl Configuration {
@@ -35,6 +41,14 @@ impl Configuration {
             wiktionary_temporary_data_directory: read_env_var_with_default_as_type(
                 "WIKTIONARY_TEMPORARY_DATA_DIRECTORY",
                 "data",
+            )?,
+            wiktionary_dump_insertion_batch_size: read_env_var_with_default_as_type(
+                "WIKTIONARY_DUMP_INSERTION_BATCH_SIZE",
+                1000usize,
+            )?,
+            wiktionary_dump_insertion_maximum_retry_count: read_env_var_with_default_as_type(
+                "WIKTIONARY_DUMP_INSERTION_MAXIMUM_RETRY_COUNT",
+                10u64,
             )?,
         })
     }

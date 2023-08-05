@@ -50,6 +50,9 @@ pub enum RVocError {
     #[error("error parsing wiktionary dump file: {source}")]
     ParseWiktionaryDump { source: Box<dyn Error> },
 
+    #[error("the maximum number of retries for inserting wiktionary words was reached")]
+    WiktionaryDumpInsertionTransactionLimitReached,
+
     #[error("there are pending database migrations")]
     PendingDatabaseMigrations,
 }
