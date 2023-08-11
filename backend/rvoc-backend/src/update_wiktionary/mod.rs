@@ -125,7 +125,7 @@ fn insert_word_buffer(
             Ok(())
         },
         database_connection,
-        configuration.wiktionary_dump_insertion_maximum_retry_count,
+        configuration.maximum_transaction_retry_count,
     )?;
 
     word_buffer.clear();

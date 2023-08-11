@@ -1,11 +1,12 @@
 use std::error::Error;
 
 use diesel::PgConnection;
+use diesel_async::AsyncPgConnection;
 use tracing::debug;
 
-use crate::error::RVocError;
+use crate::error::{BoxDynError, RVocError};
 
-/// Execute a database transaction and retry on failure.
+/// Execute a synchronous database transaction and retry on failure.
 /// Temporary failures are logged and the transaction is retried (by calling the closure again).
 /// Permanent failures cause the function to return immediately.
 ///
@@ -42,17 +43,63 @@ pub fn execute_sync_transaction_with_retries<
     ))
 }
 
+/// Execute an asynchronous database transaction and retry on failure.
+/// Temporary failures are logged and the transaction is retried (by calling the closure again).
+/// Permanent failures cause the function to return immediately.
+///
+/// If `max_retries` temporary errors have occurred, then [`PermanentError::too_many_temporary_errors`] is returned.
+pub async fn execute_transaction_with_retries<
+    'b,
+    ReturnType: 'b + Send,
+    PermanentErrorType: PermanentTransactionError,
+>(
+    transaction: impl for<'r> Fn(
+            &'r mut AsyncPgConnection,
+        ) -> diesel_async::scoped_futures::ScopedBoxFuture<
+            'b,
+            'r,
+            Result<ReturnType, TransactionError>,
+        > + Sync,
+    database_connection: &mut AsyncPgConnection,
+    max_retries: u64,
+) -> Result<ReturnType, PermanentErrorType> {
+    for _ in 0..max_retries.saturating_add(1) {
+        match database_connection
+            .build_transaction()
+            .serializable()
+            .run(&transaction)
+            .await
+        {
+            Ok(result) => return Ok(result),
+            Err(TransactionError::Temporary(error)) => {
+                debug!("temporary transaction error: {error}")
+            }
+            Err(TransactionError::Permanent(error)) => {
+                return Err(PermanentErrorType::permanent_error(error))
+            }
+            Err(TransactionError::Diesel(error)) => {
+                return Err(PermanentErrorType::permanent_error(Box::new(error)))
+            }
+        }
+    }
+
+    Err(PermanentTransactionError::too_many_temporary_errors(
+        max_retries,
+    ))
+}
+
 pub enum TransactionError {
     /// The transaction was unable to complete, but should be retried.
+    #[allow(unused)]
     Temporary(Box<dyn Error>),
     /// The transaction was unable to complete and should not be retried.
-    Permanent(Box<dyn Error>),
+    Permanent(BoxDynError),
     /// A database error.
     Diesel(diesel::result::Error),
 }
 
-impl From<Box<dyn Error>> for TransactionError {
-    fn from(value: Box<dyn Error>) -> Self {
+impl From<BoxDynError> for TransactionError {
+    fn from(value: BoxDynError) -> Self {
         Self::Permanent(value)
     }
 }
@@ -70,7 +117,7 @@ pub trait PermanentTransactionError {
     fn too_many_temporary_errors(limit: u64) -> Self;
 
     /// Construct the error instance representing a general permanent error.
-    fn permanent_error(source: Box<dyn Error>) -> Self;
+    fn permanent_error(source: BoxDynError) -> Self;
 }
 
 impl PermanentTransactionError for RVocError {
@@ -78,7 +125,7 @@ impl PermanentTransactionError for RVocError {
         Self::DatabaseTransactionRetryLimitReached { limit }
     }
 
-    fn permanent_error(source: Box<dyn Error>) -> Self {
+    fn permanent_error(source: BoxDynError) -> Self {
         Self::PermanentDatabaseTransactionError { source }
     }
 }

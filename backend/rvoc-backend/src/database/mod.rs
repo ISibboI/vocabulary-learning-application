@@ -95,7 +95,7 @@ fn create_sync_connection(configuration: &Configuration) -> RVocResult<PgConnect
             .expect("postgres_url should be utf8"),
     )
     .map_err(|error| RVocError::DatabaseConnection {
-        source: error.into(),
+        source: Box::new(error),
     })?;
     Ok(connection)
 }

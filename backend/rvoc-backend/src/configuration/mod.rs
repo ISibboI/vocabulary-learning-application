@@ -1,10 +1,11 @@
-use std::{env::VarError, error::Error, path::PathBuf, str::FromStr, time::Duration};
+use std::{env::VarError, error::Error, path::PathBuf, str::FromStr};
 
 use crate::error::{RVocError, RVocResult};
+use chrono::Duration;
 use secstr::SecStr;
 
 /// The configuration of the application.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Configuration {
     /// The url to access postgres.
     pub postgres_url: SecStr,
@@ -15,14 +16,20 @@ pub struct Configuration {
     /// The amount of time to wait for processes to shutdown gracefully.
     pub shutdown_timeout: Duration,
 
+    /// The interval at which the job queue will be polled.
+    pub job_queue_poll_interval: Duration,
+
+    /// The maximum number of retries for a failed transaction.
+    pub maximum_transaction_retry_count: u64,
+
     /// The base directory where wiktionary dumps are stored in.
     pub wiktionary_temporary_data_directory: PathBuf,
 
     /// The batch size to use when inserting words from wiktionary.
     pub wiktionary_dump_insertion_batch_size: usize,
 
-    /// The maximum number of retries when the transaction that inserts words from wiktionary fails.
-    pub wiktionary_dump_insertion_maximum_retry_count: u64,
+    /// The interval at which wiktionary is polled for new dumps, and the dumps are integrated if there is a new one.
+    pub wiktionary_update_interval: Duration,
 }
 
 impl Configuration {
@@ -34,10 +41,18 @@ impl Configuration {
                 "postgres://rvoc@localhost/rvoc",
             )?,
             opentelemetry_url: read_optional_env_var("OPENTELEMETRY_URL")?,
-            shutdown_timeout: Duration::from_secs(read_env_var_with_default_as_type(
+            shutdown_timeout: Duration::seconds(read_env_var_with_default_as_type(
                 "RVOC_SHUTDOWN_TIMEOUT",
-                30u64,
+                30i64,
             )?),
+            job_queue_poll_interval: Duration::seconds(read_env_var_with_default_as_type(
+                "JOB_QUEUE_POLL_INTERVAL_SECONDS",
+                60i64,
+            )?),
+            maximum_transaction_retry_count: read_env_var_with_default_as_type(
+                "MAXIMUM_TRANSACTION_RETRY_COUNT",
+                10u64,
+            )?,
             wiktionary_temporary_data_directory: read_env_var_with_default_as_type(
                 "WIKTIONARY_TEMPORARY_DATA_DIRECTORY",
                 "wiktionary_data",
@@ -46,10 +61,10 @@ impl Configuration {
                 "WIKTIONARY_DUMP_INSERTION_BATCH_SIZE",
                 1000usize,
             )?,
-            wiktionary_dump_insertion_maximum_retry_count: read_env_var_with_default_as_type(
-                "WIKTIONARY_DUMP_INSERTION_MAXIMUM_RETRY_COUNT",
-                10u64,
-            )?,
+            wiktionary_update_interval: Duration::hours(read_env_var_with_default_as_type::<i64>(
+                "WIKTIONARY_POLL_INTERVAL_HOURS",
+                24,
+            )?),
         })
     }
 }
@@ -83,7 +98,7 @@ fn read_optional_env_var(key: &str) -> RVocResult<Option<String>> {
 #[allow(dead_code)]
 fn read_env_var_as_type<T: FromStr>(key: &str) -> RVocResult<T>
 where
-    <T as FromStr>::Err: 'static + Error,
+    <T as FromStr>::Err: 'static + Error + Send + Sync,
 {
     match std::env::var(key) {
         Ok(value) => value
@@ -119,7 +134,7 @@ fn read_env_var_with_default(key: &str, default: impl Into<String>) -> RVocResul
 
 fn read_env_var_with_default_as_type<T: FromStr>(key: &str, default: impl Into<T>) -> RVocResult<T>
 where
-    <T as FromStr>::Err: 'static + Error,
+    <T as FromStr>::Err: 'static + Error + Send + Sync,
 {
     match std::env::var(key) {
         Ok(value) => value

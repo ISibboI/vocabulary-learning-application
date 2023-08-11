@@ -1,13 +1,19 @@
+use std::sync::atomic::AtomicBool;
+use std::sync::{atomic, Arc};
+
 use crate::error::RVocResult;
+use crate::job_queue::poll_job_queue_and_execute;
 use crate::{configuration::Configuration, error::RVocError};
 use clap::Parser;
 use database::{create_async_database_connection_pool, has_missing_migrations, run_migrations};
+use tokio::time;
 use tracing::{debug, info, instrument};
 use update_wiktionary::run_update_wiktionary;
 
 mod configuration;
 mod database;
 mod error;
+mod job_queue;
 mod schema;
 mod update_wiktionary;
 
@@ -98,7 +104,46 @@ pub async fn main() -> RVocResult<()> {
 async fn run_rvoc_backend(configuration: &Configuration) -> RVocResult<()> {
     debug!("Running rvoc backend with configuration: {configuration:#?}");
 
-    let _db_connection_pool = create_async_database_connection_pool(configuration).await?;
+    // Connect to database.
+    // (This does not actually connect to the database, connections are created lazily.)
+    let database_connection_pool = create_async_database_connection_pool(configuration).await?;
+
+    // Create shutdown flag.
+    let do_shutdown = Arc::new(AtomicBool::new(false));
+
+    // Start job queue
+    let do_job_queue_shutdown = do_shutdown.clone();
+    let job_queue_database_connection_pool = database_connection_pool.clone();
+    let job_queue_configuration = configuration.clone();
+    let test_error = RVocError::MissingEnvironmentVariable {
+        key: "".to_string(),
+    };
+    poll_job_queue_and_execute(&database_connection_pool, configuration).await?;
+
+    let job_queue_join_handle: tokio::task::JoinHandle<Result<(), RVocError>> =
+        tokio::spawn(async move {
+            let mut interval = time::interval(time::Duration::from_secs(1));
+            interval.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
+
+            while !do_job_queue_shutdown.load(atomic::Ordering::Relaxed) {
+                interval.tick().await;
+                let configuration = job_queue_configuration.clone();
+                let database_connection_pool = job_queue_database_connection_pool.clone();
+                println!("{test_error:?}");
+                poll_job_queue_and_execute(&job_queue_database_connection_pool, &job_queue_configuration)
+                     .await?;
+            }
+
+            Ok(())
+        });
+
+    do_shutdown.store(true, atomic::Ordering::Relaxed);
+
+    job_queue_join_handle
+        .await
+        .map_err(|error| RVocError::TokioTaskJoin {
+            source: Box::new(error),
+        })??;
 
     Ok(())
 }

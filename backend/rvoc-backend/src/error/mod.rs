@@ -3,6 +3,7 @@ use std::{error::Error, ffi::OsString, path::PathBuf};
 use thiserror::Error;
 
 pub type RVocResult<T> = Result<T, RVocError>;
+pub type BoxDynError = Box<dyn Error + Send + Sync>;
 
 #[derive(Debug, Error)]
 pub enum RVocError {
@@ -14,11 +15,11 @@ pub enum RVocError {
     MalformedEnvironmentVariable {
         key: String,
         value: OsString,
-        source: Box<dyn Error>,
+        source: BoxDynError,
     },
 
     #[error("setting up tracing failed: {source}")]
-    SetupTracing { source: Box<dyn Error> },
+    SetupTracing { source: BoxDynError },
 
     #[error("error creating the database connection pool: {source}")]
     DatabaseConnectionPoolCreation {
@@ -27,32 +28,43 @@ pub enum RVocError {
     },
 
     #[error("could not connect to the database: {source}")]
-    DatabaseConnection { source: Box<dyn Error> },
+    DatabaseConnection { source: BoxDynError },
+
+    #[error("permanent database transaction error: {source}")]
+    PermanentDatabaseTransactionError { source: BoxDynError },
+
+    #[error(
+        "the maximum number of retries for retrying a database transaction was reached (limit: {limit})"
+    )]
+    DatabaseTransactionRetryLimitReached { limit: u64 },
 
     #[error("error executing the database migrations: {source}")]
-    DatabaseMigration { source: Box<dyn Error> },
+    DatabaseMigration { source: BoxDynError },
 
     #[error("data directory should be a directory, but is a file: {path:?}")]
     DataDirectoryIsFile { path: PathBuf },
 
     #[error("error creating directory {path:?}: {source}")]
-    CreateDirectory {
-        path: PathBuf,
-        source: Box<dyn Error>,
-    },
+    CreateDirectory { path: PathBuf, source: BoxDynError },
 
     #[error("error downloading wiktionary dump: {source}")]
-    DownloadWiktionaryDump { source: Box<dyn Error> },
+    DownloadWiktionaryDump { source: BoxDynError },
 
     #[error("error deleting old wiktionary dumps: {source}")]
-    DeleteOldWiktionaryDumps { source: Box<dyn Error> },
+    DeleteOldWiktionaryDumps { source: BoxDynError },
 
     #[error("error parsing wiktionary dump file: {source}")]
-    ParseWiktionaryDump { source: Box<dyn Error> },
-
-    #[error("the maximum number of retries for inserting wiktionary words was reached")]
-    WiktionaryDumpInsertionTransactionLimitReached,
+    ParseWiktionaryDump { source: BoxDynError },
 
     #[error("there are pending database migrations")]
     PendingDatabaseMigrations,
+
+    #[error("could not access the job queue: {source}")]
+    AccessJobQueue { source: BoxDynError },
+
+    #[error("could not join tokio task: {source}")]
+    TokioTaskJoin { source: BoxDynError },
 }
+
+trait RequireSendAndSync: Send + Sync {}
+impl RequireSendAndSync for RVocError {}
