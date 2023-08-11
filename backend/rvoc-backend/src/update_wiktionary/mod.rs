@@ -2,12 +2,13 @@ use std::path::PathBuf;
 
 use diesel::{ExpressionMethods, NullableExpressionMethods, PgConnection, RunQueryDsl};
 use tokio::fs;
-use tracing::{debug, error, info, instrument, warn};
+use tracing::{debug, error, info, instrument};
 use wiktionary_dump_parser::parser::parse_dump_file;
 use wiktionary_dump_parser::parser::words::Word;
 use wiktionary_dump_parser::{language_code::LanguageCode, urls::DumpBaseUrl};
 
 use crate::database::create_sync_database_connection;
+use crate::database::transactions::execute_sync_transaction_with_retries;
 use crate::error::RVocResult;
 use crate::{configuration::Configuration, error::RVocError};
 
@@ -44,8 +45,11 @@ pub async fn run_update_wiktionary(configuration: &Configuration) -> RVocResult<
     })?;
 
     if !word_buffer.is_empty() {
-        insert_word_buffer(&mut word_buffer, &mut database_connection, configuration)
-            .map_err(|error| RVocError::ParseWiktionaryDump { source: error })?;
+        insert_word_buffer(&mut word_buffer, &mut database_connection, configuration).map_err(
+            |error| RVocError::ParseWiktionaryDump {
+                source: Box::new(error),
+            },
+        )?;
     }
 
     info!("Success!");
@@ -57,99 +61,74 @@ fn insert_word_buffer(
     word_buffer: &mut Vec<Word>,
     database_connection: &mut PgConnection,
     configuration: &Configuration,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let mut tries = 0;
-    loop {
-        debug!("Inserting {} words into database", word_buffer.len());
-
-        tries += 1;
-        if tries > configuration.wiktionary_dump_insertion_maximum_retry_count {
-            return Err(Box::new(
-                RVocError::WiktionaryDumpInsertionTransactionLimitReached,
-            ));
-        }
-
-        let transaction_result: Result<(), diesel::result::Error> = database_connection
-            .build_transaction()
-            .serializable()
-            .run(|database_connection| {
-                {
-                    use crate::schema::*;
-
-                    diesel::insert_into(languages::table)
-                        .values(
-                            &word_buffer
-                                .iter()
-                                .map(|word| languages::english_name.eq(&word.language_english_name))
-                                .collect::<Vec<_>>(),
-                        )
-                        .on_conflict_do_nothing()
-                        .execute(database_connection)?;
-
-                    diesel::insert_into(word_types::table)
-                        .values(
-                            &word_buffer
-                                .iter()
-                                .map(|word| word_types::english_name.eq(&word.word_type))
-                                .collect::<Vec<_>>(),
-                        )
-                        .on_conflict_do_nothing()
-                        .execute(database_connection)?;
-                }
-
-                // query:
-                // INSERT INTO words (word, word_type, language) VALUES (
-                //    "...",
-                //    (SELECT id FROM word_types WHERE english_name = "..."),
-                //    (SELECT id FROM languages WHERE english_name = "...")
-                // );
-
+) -> Result<(), RVocError> {
+    execute_sync_transaction_with_retries::<_, RVocError>(
+        |database_connection| {
+            {
                 use crate::schema::*;
-                use diesel::QueryDsl;
 
-                diesel::insert_into(words::table)
+                diesel::insert_into(languages::table)
                     .values(
-                        word_buffer
+                        &word_buffer
                             .iter()
-                            .map(|word| {
-                                (
-                                    words::word.eq(&word.word),
-                                    words::language.eq(languages::table
-                                        .select(languages::id)
-                                        .filter(
-                                            languages::english_name.eq(&word.language_english_name),
-                                        )
-                                        .single_value()
-                                        .assume_not_null()),
-                                    words::word_type.eq(word_types::table
-                                        .select(word_types::id)
-                                        .filter(word_types::english_name.eq(&word.word_type))
-                                        .single_value()
-                                        .assume_not_null()),
-                                )
-                            })
+                            .map(|word| languages::english_name.eq(&word.language_english_name))
                             .collect::<Vec<_>>(),
                     )
                     .on_conflict_do_nothing()
                     .execute(database_connection)?;
 
-                Ok(())
-            });
+                diesel::insert_into(word_types::table)
+                    .values(
+                        &word_buffer
+                            .iter()
+                            .map(|word| word_types::english_name.eq(&word.word_type))
+                            .collect::<Vec<_>>(),
+                    )
+                    .on_conflict_do_nothing()
+                    .execute(database_connection)?;
+            }
 
-        match transaction_result {
-            Ok(()) => {
-                word_buffer.clear();
-                break;
-            }
-            Err(error @ diesel::result::Error::RollbackErrorOnCommit { .. }) => {
-                return Err(Box::new(error));
-            }
-            Err(error) => {
-                warn!("Word insertion transaction unsuccessful, retrying: {error}");
-            }
-        }
-    }
+            // query:
+            // INSERT INTO words (word, word_type, language) VALUES (
+            //    "...",
+            //    (SELECT id FROM word_types WHERE english_name = "..."),
+            //    (SELECT id FROM languages WHERE english_name = "...")
+            // );
 
+            use crate::schema::*;
+            use diesel::QueryDsl;
+
+            diesel::insert_into(words::table)
+                .values(
+                    word_buffer
+                        .iter()
+                        .map(|word| {
+                            (
+                                words::word.eq(&word.word),
+                                words::language.eq(languages::table
+                                    .select(languages::id)
+                                    .filter(languages::english_name.eq(&word.language_english_name))
+                                    .single_value()
+                                    .assume_not_null()),
+                                words::word_type.eq(word_types::table
+                                    .select(word_types::id)
+                                    .filter(word_types::english_name.eq(&word.word_type))
+                                    .single_value()
+                                    .assume_not_null()),
+                            )
+                        })
+                        .collect::<Vec<_>>(),
+                )
+                .on_conflict_do_nothing()
+                .execute(database_connection)?;
+
+            Ok(())
+        },
+        database_connection,
+        configuration.wiktionary_dump_insertion_maximum_retry_count,
+    )?;
+
+    word_buffer.clear();
     Ok(())
 }
 

@@ -7,6 +7,7 @@ use diesel_async::{pooled_connection::deadpool::Pool, AsyncPgConnection};
 use tracing::{debug, info, instrument};
 
 pub mod model;
+pub mod transactions;
 
 const MIGRATIONS: diesel_migrations::EmbeddedMigrations = diesel_migrations::embed_migrations!();
 
