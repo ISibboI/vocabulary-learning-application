@@ -44,7 +44,7 @@ async fn reserve_job(
     execute_transaction_with_retries::<_, RVocError>(
         |database_connection| {
             Box::pin(async move {
-                use crate::schema::job_queue::dsl::*;
+                use crate::database::schema::job_queue::dsl::*;
                 use diesel::Identifiable;
                 use diesel::OptionalExtension;
                 use diesel::QueryDsl;
@@ -87,22 +87,6 @@ async fn reserve_job(
                         warn!("Job is still running: {:?}", running_job.id());
                         return Ok(None);
                     }
-
-                    // Schedule the next execution.
-                    /*let next_scheduled_execution = ScheduledJob {
-                        scheduled_execution_time: queued_job.scheduled_execution_time
-                            + job_name.job_interval(configuration),
-                        name: job_name.to_string(),
-                        in_progress: false,
-                    };
-                    if next_scheduled_execution.scheduled_execution_time < Utc::now() {
-                        warn!("Scheduled job in the past");
-                    }
-
-                    diesel::insert_into(job_queue)
-                        .values(next_scheduled_execution)
-                        .execute(database_connection)
-                        .await?;*/
 
                     // Set the current job as in progress.
                     queued_job.in_progress = true;
@@ -173,7 +157,7 @@ async fn complete_job(
     execute_transaction_with_retries::<_, RVocError>(
         |database_connection| {
             Box::pin(async move {
-                use crate::schema::job_queue::dsl::*;
+                use crate::database::schema::job_queue::dsl::*;
                 use diesel_async::RunQueryDsl;
 
                 // Schedule the next execution.

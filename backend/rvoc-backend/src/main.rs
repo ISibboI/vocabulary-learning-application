@@ -14,7 +14,6 @@ mod configuration;
 mod database;
 mod error;
 mod job_queue;
-mod schema;
 mod update_wiktionary;
 
 /// Decide how to run the application.

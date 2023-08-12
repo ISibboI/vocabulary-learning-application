@@ -65,7 +65,7 @@ fn insert_word_buffer(
     execute_sync_transaction_with_retries::<_, RVocError>(
         |database_connection| {
             {
-                use crate::schema::*;
+                use crate::database::schema::*;
 
                 diesel::insert_into(languages::table)
                     .values(
@@ -95,7 +95,7 @@ fn insert_word_buffer(
             //    (SELECT id FROM languages WHERE english_name = "...")
             // );
 
-            use crate::schema::*;
+            use crate::database::schema::*;
             use diesel::QueryDsl;
 
             diesel::insert_into(words::table)
