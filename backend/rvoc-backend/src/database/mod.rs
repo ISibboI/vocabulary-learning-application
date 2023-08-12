@@ -3,17 +3,16 @@ use crate::{
     error::{RVocError, RVocResult},
 };
 use diesel::PgConnection;
-use diesel_async::{pooled_connection::deadpool::Pool, AsyncPgConnection};
 
-use self::{
-    connection::{create_async_connection_pool, create_sync_connection},
-    migrations::has_missing_migrations,
-};
+use self::{migrations::has_missing_migrations, sync_connection::create_sync_connection};
 
-mod connection;
+pub use self::async_connection_pool::RVocAsyncDatabaseConnectionPool;
+
+mod async_connection_pool;
 pub mod migrations;
 pub mod model;
 pub mod schema;
+mod sync_connection;
 pub mod transactions;
 
 /// Create an async connection pool to the database.
@@ -21,11 +20,11 @@ pub mod transactions;
 /// If there are pending database migrations, this method returns an error.
 pub async fn create_async_database_connection_pool(
     configuration: &Configuration,
-) -> RVocResult<Pool<AsyncPgConnection>> {
+) -> RVocResult<RVocAsyncDatabaseConnectionPool> {
     if has_missing_migrations(configuration)? {
         Err(RVocError::PendingDatabaseMigrations)
     } else {
-        create_async_connection_pool(configuration)
+        RVocAsyncDatabaseConnectionPool::new(configuration)
     }
 }
 

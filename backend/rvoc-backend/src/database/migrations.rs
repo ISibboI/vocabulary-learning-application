@@ -2,7 +2,7 @@ use tracing::{debug, info, instrument};
 
 use crate::{
     configuration::Configuration,
-    database::connection::create_sync_connection,
+    database::sync_connection::create_sync_connection,
     error::{RVocError, RVocResult},
 };
 
