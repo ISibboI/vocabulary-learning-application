@@ -19,6 +19,7 @@ permissions: read-all
 
 jobs:
   audit:
+    name: "Cargo audit"
     runs-on: ubuntu-latest
     permissions:
       issues: write
