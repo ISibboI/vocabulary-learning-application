@@ -1,6 +1,17 @@
 name: Rust Backend Tests and Lints
 
-on: [push, pull_request]
+on:
+  push:
+    paths:
+      # Run if workflow changes
+      - '.github/workflows/rvoc-backend.yml'
+      # Run on changed dependencies
+      - '**/Cargo.toml'
+      - '**/Cargo.lock'
+      - '**/rust-toolchain.toml'
+      # Run on changed source files
+      - 'backend/rvoc-backend/src/**'
+  pull_request:
 
 env:
   RUSTFLAGS: "-Dwarnings"

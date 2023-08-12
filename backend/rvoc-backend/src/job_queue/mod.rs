@@ -2,19 +2,18 @@ use std::str::FromStr;
 
 use chrono::{DateTime, Duration, Utc};
 use diesel::{dsl::now, ExpressionMethods};
-use diesel_async::{pooled_connection::deadpool::Pool, AsyncPgConnection};
 use strum::{AsRefStr, Display, EnumString};
 use tracing::{debug, instrument, warn};
 
 use crate::{
     configuration::Configuration,
-    database::{model::ScheduledJob, transactions::execute_transaction_with_retries},
+    database::{model::ScheduledJob, RVocAsyncDatabaseConnectionPool},
     error::{RVocError, RVocResult},
 };
 
 #[instrument(err, skip(database_connection_pool, configuration))]
 pub async fn poll_job_queue_and_execute(
-    database_connection_pool: &Pool<AsyncPgConnection>,
+    database_connection_pool: &RVocAsyncDatabaseConnectionPool,
     configuration: &Configuration,
 ) -> RVocResult<()> {
     if let Some(job) = reserve_job(database_connection_pool, configuration).await? {
@@ -30,117 +29,95 @@ pub async fn poll_job_queue_and_execute(
 /// If yes, then mark it as "in progress" and return it.
 #[instrument(err, skip(database_connection_pool, configuration))]
 async fn reserve_job(
-    database_connection_pool: &Pool<AsyncPgConnection>,
+    database_connection_pool: &RVocAsyncDatabaseConnectionPool,
     configuration: &Configuration,
 ) -> RVocResult<Option<InProgressJob>> {
-    let mut database_connection =
-        database_connection_pool
-            .get()
-            .await
-            .map_err(|error| RVocError::AccessJobQueue {
-                source: Box::new(error),
-            })?;
+    database_connection_pool
+        .execute_transaction_with_retries::<_, RVocError>(
+            |database_connection| {
+                Box::pin(async move {
+                    use crate::database::schema::job_queue::dsl::*;
+                    use diesel::Identifiable;
+                    use diesel::OptionalExtension;
+                    use diesel::QueryDsl;
+                    use diesel::SelectableHelper;
+                    use diesel_async::RunQueryDsl;
 
-    execute_transaction_with_retries::<_, RVocError>(
-        |database_connection| {
-            Box::pin(async move {
-                use crate::schema::job_queue::dsl::*;
-                use diesel::Identifiable;
-                use diesel::OptionalExtension;
-                use diesel::QueryDsl;
-                use diesel::SelectableHelper;
-                use diesel_async::RunQueryDsl;
-
-                // See if there is a job available.
-                let queued_job = job_queue
-                    .select(ScheduledJob::as_select())
-                    .filter(scheduled_execution_time.ge(now))
-                    .filter(in_progress.eq(false))
-                    .order_by(scheduled_execution_time.asc())
-                    .first(database_connection)
-                    .await
-                    .optional()?;
-
-                if let Some(mut queued_job) = queued_job {
-                    // Convert the job name into JobName.
-                    // If it does not exist, then we delete the corresponding job.
-                    let job_name = match JobName::from_str(&queued_job.name) {
-                        Ok(job_name) => job_name,
-                        Err(error) => {
-                            warn!("Error decoding job name, deleting corresponding job: {error}");
-                            diesel::delete(&queued_job)
-                                .execute(database_connection)
-                                .await?;
-                            return Ok(None);
-                        }
-                    };
-
-                    // Check if job is still running.
-                    if let Some(running_job) = job_queue
+                    // See if there is a job available.
+                    let queued_job = job_queue
                         .select(ScheduledJob::as_select())
-                        .filter(name.eq(job_name.to_string()))
-                        .filter(in_progress.eq(true))
+                        .filter(scheduled_execution_time.ge(now))
+                        .filter(in_progress.eq(false))
+                        .order_by(scheduled_execution_time.asc())
                         .first(database_connection)
                         .await
-                        .optional()?
-                    {
-                        warn!("Job is still running: {:?}", running_job.id());
-                        return Ok(None);
-                    }
+                        .optional()?;
 
-                    // Schedule the next execution.
-                    /*let next_scheduled_execution = ScheduledJob {
-                        scheduled_execution_time: queued_job.scheduled_execution_time
-                            + job_name.job_interval(configuration),
-                        name: job_name.to_string(),
-                        in_progress: false,
-                    };
-                    if next_scheduled_execution.scheduled_execution_time < Utc::now() {
-                        warn!("Scheduled job in the past");
-                    }
+                    if let Some(mut queued_job) = queued_job {
+                        // Convert the job name into JobName.
+                        // If it does not exist, then we delete the corresponding job.
+                        let job_name = match JobName::from_str(&queued_job.name) {
+                            Ok(job_name) => job_name,
+                            Err(error) => {
+                                warn!(
+                                    "Error decoding job name, deleting corresponding job: {error}"
+                                );
+                                diesel::delete(&queued_job)
+                                    .execute(database_connection)
+                                    .await?;
+                                return Ok(None);
+                            }
+                        };
 
-                    diesel::insert_into(job_queue)
-                        .values(next_scheduled_execution)
-                        .execute(database_connection)
-                        .await?;*/
+                        // Check if job is still running.
+                        if let Some(running_job) = job_queue
+                            .select(ScheduledJob::as_select())
+                            .filter(name.eq(job_name.to_string()))
+                            .filter(in_progress.eq(true))
+                            .first(database_connection)
+                            .await
+                            .optional()?
+                        {
+                            warn!("Job is still running: {:?}", running_job.id());
+                            return Ok(None);
+                        }
 
-                    // Set the current job as in progress.
-                    queued_job.in_progress = true;
-                    diesel::update(job_queue)
-                        .set(&queued_job)
-                        .execute(database_connection)
-                        .await?;
+                        // Set the current job as in progress.
+                        queued_job.in_progress = true;
+                        diesel::update(job_queue)
+                            .set(&queued_job)
+                            .execute(database_connection)
+                            .await?;
 
-                    // let start_time = diesel::select(now).get_result(database_connection).await?;
+                        // let start_time = diesel::select(now).get_result(database_connection).await?;
 
-                    let job = InProgressJob {
-                        scheduled_time: queued_job.scheduled_execution_time,
-                        start_time: Utc::now(),
-                        name: job_name,
-                    };
+                        let job = InProgressJob {
+                            scheduled_time: queued_job.scheduled_execution_time,
+                            start_time: Utc::now(),
+                            name: job_name,
+                        };
 
-                    if job.start_time - job.scheduled_time
-                        > configuration.job_queue_poll_interval + Duration::seconds(10)
-                    {
-                        warn!(
+                        if job.start_time - job.scheduled_time
+                            > configuration.job_queue_poll_interval + Duration::seconds(10)
+                        {
+                            warn!(
                             "Job started with a delay larger than the job queue poll interval: {}",
                             configuration.job_queue_poll_interval
                         );
-                    }
+                        }
 
-                    Ok(Some(job))
-                } else {
-                    Ok(None)
-                }
-            })
-        },
-        database_connection.as_mut(),
-        configuration.maximum_transaction_retry_count,
-    )
-    .await
-    .map_err(|error| RVocError::AccessJobQueue {
-        source: Box::new(error),
-    })
+                        Ok(Some(job))
+                    } else {
+                        Ok(None)
+                    }
+                })
+            },
+            configuration.maximum_transaction_retry_count,
+        )
+        .await
+        .map_err(|error| RVocError::AccessJobQueue {
+            source: Box::new(error),
+        })
 }
 
 /// Check if there is a job to be executed.
@@ -148,17 +125,9 @@ async fn reserve_job(
 #[instrument(err, skip(database_connection_pool, configuration))]
 async fn complete_job(
     job: InProgressJob,
-    database_connection_pool: &Pool<AsyncPgConnection>,
+    database_connection_pool: &RVocAsyncDatabaseConnectionPool,
     configuration: &Configuration,
 ) -> RVocResult<()> {
-    let mut database_connection =
-        database_connection_pool
-            .get()
-            .await
-            .map_err(|error| RVocError::AccessJobQueue {
-                source: Box::new(error),
-            })?;
-
     let finish_time = Utc::now();
     let completed_job = job.finish(finish_time);
     let completed_job = &completed_job;
@@ -170,37 +139,38 @@ async fn complete_job(
         completed_job.delay()
     );
 
-    execute_transaction_with_retries::<_, RVocError>(
-        |database_connection| {
-            Box::pin(async move {
-                use crate::schema::job_queue::dsl::*;
-                use diesel_async::RunQueryDsl;
+    database_connection_pool
+        .execute_transaction_with_retries::<_, RVocError>(
+            |database_connection| {
+                Box::pin(async move {
+                    use crate::database::schema::job_queue::dsl::*;
+                    use diesel_async::RunQueryDsl;
 
-                // Schedule the next execution.
-                let next_scheduled_execution = ScheduledJob {
-                    scheduled_execution_time: completed_job.schedule_next_execution(configuration),
-                    name: completed_job.name.to_string(),
-                    in_progress: false,
-                };
-                if next_scheduled_execution.scheduled_execution_time < Utc::now() {
-                    warn!("Scheduled job in the past: {next_scheduled_execution:?}");
-                }
+                    // Schedule the next execution.
+                    let next_scheduled_execution = ScheduledJob {
+                        scheduled_execution_time: completed_job
+                            .schedule_next_execution(configuration),
+                        name: completed_job.name.to_string(),
+                        in_progress: false,
+                    };
+                    if next_scheduled_execution.scheduled_execution_time < Utc::now() {
+                        warn!("Scheduled job in the past: {next_scheduled_execution:?}");
+                    }
 
-                diesel::update(job_queue)
-                    .set(next_scheduled_execution)
-                    .execute(database_connection)
-                    .await?;
+                    diesel::update(job_queue)
+                        .set(next_scheduled_execution)
+                        .execute(database_connection)
+                        .await?;
 
-                Ok(())
-            })
-        },
-        database_connection.as_mut(),
-        configuration.maximum_transaction_retry_count,
-    )
-    .await
-    .map_err(|error| RVocError::AccessJobQueue {
-        source: Box::new(error),
-    })
+                    Ok(())
+                })
+            },
+            configuration.maximum_transaction_retry_count,
+        )
+        .await
+        .map_err(|error| RVocError::AccessJobQueue {
+            source: Box::new(error),
+        })
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, EnumString, Display, AsRefStr)]

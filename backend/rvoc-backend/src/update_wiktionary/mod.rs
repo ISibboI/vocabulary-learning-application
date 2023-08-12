@@ -1,14 +1,13 @@
 use std::path::PathBuf;
 
-use diesel::{ExpressionMethods, NullableExpressionMethods, PgConnection, RunQueryDsl};
+use diesel::{ExpressionMethods, NullableExpressionMethods, RunQueryDsl};
 use tokio::fs;
 use tracing::{debug, error, info, instrument};
 use wiktionary_dump_parser::parser::parse_dump_file;
 use wiktionary_dump_parser::parser::words::Word;
 use wiktionary_dump_parser::{language_code::LanguageCode, urls::DumpBaseUrl};
 
-use crate::database::create_sync_database_connection;
-use crate::database::transactions::execute_sync_transaction_with_retries;
+use crate::database::{create_sync_database_connection, RVocSyncDatabaseConnection};
 use crate::error::RVocResult;
 use crate::{configuration::Configuration, error::RVocError};
 
@@ -59,13 +58,13 @@ pub async fn run_update_wiktionary(configuration: &Configuration) -> RVocResult<
 
 fn insert_word_buffer(
     word_buffer: &mut Vec<Word>,
-    database_connection: &mut PgConnection,
+    database_connection: &mut RVocSyncDatabaseConnection,
     configuration: &Configuration,
 ) -> Result<(), RVocError> {
-    execute_sync_transaction_with_retries::<_, RVocError>(
+    database_connection.execute_sync_transaction_with_retries::<_, RVocError>(
         |database_connection| {
             {
-                use crate::schema::*;
+                use crate::database::schema::*;
 
                 diesel::insert_into(languages::table)
                     .values(
@@ -95,7 +94,7 @@ fn insert_word_buffer(
             //    (SELECT id FROM languages WHERE english_name = "...")
             // );
 
-            use crate::schema::*;
+            use crate::database::schema::*;
             use diesel::QueryDsl;
 
             diesel::insert_into(words::table)
@@ -124,7 +123,6 @@ fn insert_word_buffer(
 
             Ok(())
         },
-        database_connection,
         configuration.maximum_transaction_retry_count,
     )?;
 

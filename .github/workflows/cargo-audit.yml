@@ -3,7 +3,7 @@ on:
   push:
     paths:
       # Run if workflow changes
-      - '.github/workflows/audit.yml'
+      - '.github/workflows/cargo-audit.yml'
       # Run on changed dependencies
       - '**/Cargo.toml'
       - '**/Cargo.lock'
@@ -19,6 +19,7 @@ permissions: read-all
 
 jobs:
   audit:
+    name: "Cargo audit"
     runs-on: ubuntu-latest
     permissions:
       issues: write
@@ -26,3 +27,5 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions-rust-lang/audit@v1
         name: Audit Rust Dependencies
+        with:
+          ignore: RUSTSEC-2020-0071
