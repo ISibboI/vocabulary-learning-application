@@ -6,6 +6,9 @@ use diesel::PgConnection;
 use diesel_async::{pooled_connection::deadpool::Pool, AsyncPgConnection};
 use tracing::{debug, info, instrument};
 
+use self::connection::{create_async_connection_pool, create_sync_connection};
+
+mod connection;
 pub mod model;
 pub mod schema;
 pub mod transactions;
@@ -21,7 +24,7 @@ pub async fn create_async_database_connection_pool(
     if has_missing_migrations(configuration)? {
         Err(RVocError::PendingDatabaseMigrations)
     } else {
-        create_async_connection_pool(configuration).await
+        create_async_connection_pool(configuration)
     }
 }
 
@@ -68,35 +71,4 @@ pub fn run_migrations(configuration: &Configuration) -> RVocResult<()> {
         .map_err(|error| RVocError::DatabaseMigration { source: error })?;
     info!("Database migrations complete");
     Ok(())
-}
-
-#[instrument(err, skip(configuration))]
-async fn create_async_connection_pool(
-    configuration: &Configuration,
-) -> RVocResult<Pool<AsyncPgConnection>> {
-    // create a new connection pool with the default config
-    let connection_manager = diesel_async::pooled_connection::AsyncDieselConnectionManager::<
-        diesel_async::AsyncPgConnection,
-    >::new(
-        std::str::from_utf8(configuration.postgres_url.unsecure())
-            .expect("postgres_url should be utf8"),
-    );
-    let pool = Pool::builder(connection_manager).build()?;
-
-    Ok(pool)
-}
-
-#[instrument(err, skip(configuration))]
-fn create_sync_connection(configuration: &Configuration) -> RVocResult<PgConnection> {
-    use diesel::Connection;
-
-    // create a new connection with the default config
-    let connection = PgConnection::establish(
-        std::str::from_utf8(configuration.postgres_url.unsecure())
-            .expect("postgres_url should be utf8"),
-    )
-    .map_err(|error| RVocError::DatabaseConnection {
-        source: Box::new(error),
-    })?;
-    Ok(connection)
 }
