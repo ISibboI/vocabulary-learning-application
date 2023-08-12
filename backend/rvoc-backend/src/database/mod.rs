@@ -4,16 +4,17 @@ use crate::{
 };
 use diesel::PgConnection;
 use diesel_async::{pooled_connection::deadpool::Pool, AsyncPgConnection};
-use tracing::{debug, info, instrument};
 
-use self::connection::{create_async_connection_pool, create_sync_connection};
+use self::{
+    connection::{create_async_connection_pool, create_sync_connection},
+    migrations::has_missing_migrations,
+};
 
 mod connection;
+pub mod migrations;
 pub mod model;
 pub mod schema;
 pub mod transactions;
-
-const MIGRATIONS: diesel_migrations::EmbeddedMigrations = diesel_migrations::embed_migrations!();
 
 /// Create an async connection pool to the database.
 ///
@@ -37,38 +38,4 @@ pub fn create_sync_database_connection(configuration: &Configuration) -> RVocRes
     } else {
         create_sync_connection(configuration)
     }
-}
-
-/// Synchronously check if there are missing database migrations.
-pub fn has_missing_migrations(configuration: &Configuration) -> RVocResult<bool> {
-    use diesel_migrations::MigrationHarness;
-
-    // Needs to be a sync connection, because `diesel_migrations` does not support async yet,
-    // and `diesel_async` does not support migrations yet.
-    debug!("Creating synchronous connection to database");
-    let mut connection = create_sync_connection(configuration)?;
-
-    connection
-        .has_pending_migration(MIGRATIONS)
-        .map_err(|error| RVocError::DatabaseMigration { source: error })
-}
-
-/// Runs all missing migrations synchronously.
-///
-/// **Warning:** It is unknown how this deals with concurrent execution of migrations,
-/// so make sure that this is never run twice at the same time on the same database.
-#[instrument(err, skip(configuration))]
-pub fn run_migrations(configuration: &Configuration) -> RVocResult<()> {
-    use diesel_migrations::MigrationHarness;
-
-    // Needs to be a sync connection, because `diesel_migrations` does not support async yet,
-    // and `diesel_async` does not support migrations yet.
-    debug!("Creating synchronous connection to database");
-    let mut connection = create_sync_connection(configuration)?;
-    info!("Running pending database migrations (this may take a long time)...");
-    connection
-        .run_pending_migrations(MIGRATIONS)
-        .map_err(|error| RVocError::DatabaseMigration { source: error })?;
-    info!("Database migrations complete");
-    Ok(())
 }

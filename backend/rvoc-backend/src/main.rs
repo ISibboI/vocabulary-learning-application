@@ -1,11 +1,13 @@
 use std::sync::atomic::AtomicBool;
 use std::sync::{atomic, Arc};
 
+use crate::database::migrations::run_migrations;
 use crate::error::RVocResult;
 use crate::job_queue::poll_job_queue_and_execute;
 use crate::{configuration::Configuration, error::RVocError};
 use clap::Parser;
-use database::{create_async_database_connection_pool, has_missing_migrations, run_migrations};
+use database::create_async_database_connection_pool;
+use database::migrations::has_missing_migrations;
 use tokio::time;
 use tracing::{debug, info, instrument};
 use update_wiktionary::run_update_wiktionary;
