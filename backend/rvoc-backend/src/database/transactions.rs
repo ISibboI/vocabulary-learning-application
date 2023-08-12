@@ -6,7 +6,7 @@ use tracing::{debug, instrument};
 
 use crate::error::{BoxDynError, RVocError};
 
-use super::RVocAsyncDatabaseConnectionPool;
+use super::{RVocAsyncDatabaseConnectionPool, RVocSyncDatabaseConnection};
 
 impl RVocAsyncDatabaseConnectionPool {
     /// Execute an asynchronous database transaction and retry on failure.
@@ -62,41 +62,44 @@ impl RVocAsyncDatabaseConnectionPool {
     }
 }
 
-/// Execute a synchronous database transaction and retry on failure.
-/// Temporary failures are logged and the transaction is retried (by calling the closure again).
-/// Permanent failures cause the function to return immediately.
-///
-/// If `max_retries` temporary errors have occurred, then [`PermanentError::too_many_temporary_errors`] is returned.
-pub fn execute_sync_transaction_with_retries<
-    ReturnType,
-    PermanentErrorType: PermanentTransactionError,
->(
-    transaction: impl Fn(&mut PgConnection) -> Result<ReturnType, TransactionError>,
-    database_connection: &mut PgConnection,
-    max_retries: u64,
-) -> Result<ReturnType, PermanentErrorType> {
-    for _ in 0..max_retries.saturating_add(1) {
-        match database_connection
-            .build_transaction()
-            .serializable()
-            .run(&transaction)
-        {
-            Ok(result) => return Ok(result),
-            Err(TransactionError::Temporary(error)) => {
-                debug!("temporary transaction error: {error}")
-            }
-            Err(TransactionError::Permanent(error)) => {
-                return Err(PermanentErrorType::permanent_error(error))
-            }
-            Err(TransactionError::Diesel(error)) => {
-                return Err(PermanentErrorType::permanent_error(Box::new(error)))
+impl RVocSyncDatabaseConnection {
+    /// Execute a synchronous database transaction and retry on failure.
+    /// Temporary failures are logged and the transaction is retried (by calling the closure again).
+    /// Permanent failures cause the function to return immediately.
+    ///
+    /// If `max_retries` temporary errors have occurred, then [`PermanentError::too_many_temporary_errors`] is returned.
+    pub fn execute_sync_transaction_with_retries<
+        ReturnType,
+        PermanentErrorType: PermanentTransactionError,
+    >(
+        &mut self,
+        transaction: impl Fn(&mut PgConnection) -> Result<ReturnType, TransactionError>,
+        max_retries: u64,
+    ) -> Result<ReturnType, PermanentErrorType> {
+        for _ in 0..max_retries.saturating_add(1) {
+            match self
+                .implementation
+                .build_transaction()
+                .serializable()
+                .run(&transaction)
+            {
+                Ok(result) => return Ok(result),
+                Err(TransactionError::Temporary(error)) => {
+                    debug!("temporary transaction error: {error}")
+                }
+                Err(TransactionError::Permanent(error)) => {
+                    return Err(PermanentErrorType::permanent_error(error))
+                }
+                Err(TransactionError::Diesel(error)) => {
+                    return Err(PermanentErrorType::permanent_error(Box::new(error)))
+                }
             }
         }
-    }
 
-    Err(PermanentTransactionError::too_many_temporary_errors(
-        max_retries,
-    ))
+        Err(PermanentTransactionError::too_many_temporary_errors(
+            max_retries,
+        ))
+    }
 }
 
 pub enum TransactionError {

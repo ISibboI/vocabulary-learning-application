@@ -6,17 +6,29 @@ use crate::{
     error::{RVocError, RVocResult},
 };
 
-#[instrument(err, skip(configuration))]
-pub fn create_sync_connection(configuration: &Configuration) -> RVocResult<PgConnection> {
-    use diesel::Connection;
+pub struct RVocSyncDatabaseConnection {
+    pub(super) implementation: PgConnection,
+}
 
-    // create a new connection with the default config
-    let connection = PgConnection::establish(
-        std::str::from_utf8(configuration.postgres_url.unsecure())
-            .expect("postgres_url should be utf8"),
-    )
-    .map_err(|error| RVocError::DatabaseConnection {
-        source: Box::new(error),
-    })?;
-    Ok(connection)
+impl RVocSyncDatabaseConnection {
+    #[instrument(err, skip(configuration))]
+    pub(super) fn new(configuration: &Configuration) -> RVocResult<Self> {
+        use diesel::Connection;
+
+        // create a new connection with the default config
+        let connection = PgConnection::establish(
+            std::str::from_utf8(configuration.postgres_url.unsecure())
+                .expect("postgres_url should be utf8"),
+        )
+        .map_err(|error| RVocError::DatabaseConnection {
+            source: Box::new(error),
+        })?;
+        Ok(Self {
+            implementation: connection,
+        })
+    }
+
+    pub(super) fn get_mut(&mut self) -> &mut PgConnection {
+        &mut self.implementation
+    }
 }

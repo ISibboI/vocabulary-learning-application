@@ -2,11 +2,11 @@ use crate::{
     configuration::Configuration,
     error::{RVocError, RVocResult},
 };
-use diesel::PgConnection;
 
-use self::{migrations::has_missing_migrations, sync_connection::create_sync_connection};
+use self::migrations::has_missing_migrations;
 
 pub use self::async_connection_pool::RVocAsyncDatabaseConnectionPool;
+pub use self::sync_connection::RVocSyncDatabaseConnection;
 
 mod async_connection_pool;
 pub mod migrations;
@@ -31,10 +31,12 @@ pub async fn create_async_database_connection_pool(
 /// Create a sync connection to the database.
 ///
 /// If there are pending database migrations, this method returns an error.
-pub fn create_sync_database_connection(configuration: &Configuration) -> RVocResult<PgConnection> {
+pub fn create_sync_database_connection(
+    configuration: &Configuration,
+) -> RVocResult<RVocSyncDatabaseConnection> {
     if has_missing_migrations(configuration)? {
         Err(RVocError::PendingDatabaseMigrations)
     } else {
-        create_sync_connection(configuration)
+        RVocSyncDatabaseConnection::new(configuration)
     }
 }
