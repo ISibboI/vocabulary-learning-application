@@ -1,5 +1,3 @@
-use std::error::Error;
-
 use diesel::PgConnection;
 use diesel_async::AsyncPgConnection;
 use tracing::debug;
@@ -91,7 +89,7 @@ pub async fn execute_transaction_with_retries<
 pub enum TransactionError {
     /// The transaction was unable to complete, but should be retried.
     #[allow(unused)]
-    Temporary(Box<dyn Error>),
+    Temporary(BoxDynError),
     /// The transaction was unable to complete and should not be retried.
     Permanent(BoxDynError),
     /// A database error.

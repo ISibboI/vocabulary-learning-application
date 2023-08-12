@@ -115,10 +115,6 @@ async fn run_rvoc_backend(configuration: &Configuration) -> RVocResult<()> {
     let do_job_queue_shutdown = do_shutdown.clone();
     let job_queue_database_connection_pool = database_connection_pool.clone();
     let job_queue_configuration = configuration.clone();
-    let test_error = RVocError::MissingEnvironmentVariable {
-        key: "".to_string(),
-    };
-    poll_job_queue_and_execute(&database_connection_pool, configuration).await?;
 
     let job_queue_join_handle: tokio::task::JoinHandle<Result<(), RVocError>> =
         tokio::spawn(async move {
@@ -127,11 +123,11 @@ async fn run_rvoc_backend(configuration: &Configuration) -> RVocResult<()> {
 
             while !do_job_queue_shutdown.load(atomic::Ordering::Relaxed) {
                 interval.tick().await;
-                let configuration = job_queue_configuration.clone();
-                let database_connection_pool = job_queue_database_connection_pool.clone();
-                println!("{test_error:?}");
-                poll_job_queue_and_execute(&job_queue_database_connection_pool, &job_queue_configuration)
-                     .await?;
+                poll_job_queue_and_execute(
+                    &job_queue_database_connection_pool,
+                    &job_queue_configuration,
+                )
+                .await?;
             }
 
             Ok(())
