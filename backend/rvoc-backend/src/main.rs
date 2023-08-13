@@ -1,14 +1,12 @@
-use std::sync::atomic::AtomicBool;
 use std::sync::{atomic, Arc};
 
 use crate::database::migrations::run_migrations;
 use crate::error::RVocResult;
-use crate::job_queue::poll_job_queue_and_execute;
+use crate::job_queue::spawn_job_queue_runner;
 use crate::{configuration::Configuration, error::RVocError};
 use clap::Parser;
 use database::create_async_database_connection_pool;
 use database::migrations::has_missing_migrations;
-use tokio::time;
 use tracing::{debug, info, instrument};
 use update_wiktionary::run_update_wiktionary;
 
@@ -110,30 +108,18 @@ async fn run_rvoc_backend(configuration: &Configuration) -> RVocResult<()> {
     let database_connection_pool = create_async_database_connection_pool(configuration).await?;
 
     // Create shutdown flag.
-    let do_shutdown = Arc::new(AtomicBool::new(false));
+    let do_shutdown = Arc::new(atomic::AtomicBool::new(false));
 
     // Start job queue
-    let do_job_queue_shutdown = do_shutdown.clone();
-    let job_queue_database_connection_pool = database_connection_pool.clone();
-    let job_queue_configuration = configuration.clone();
-
     let job_queue_join_handle: tokio::task::JoinHandle<Result<(), RVocError>> =
-        tokio::spawn(async move {
-            let mut interval = time::interval(time::Duration::from_secs(1));
-            interval.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
+        spawn_job_queue_runner(
+            &database_connection_pool,
+            do_shutdown.clone(),
+            configuration,
+        )
+        .await?;
 
-            while !do_job_queue_shutdown.load(atomic::Ordering::Relaxed) {
-                interval.tick().await;
-                poll_job_queue_and_execute(
-                    &job_queue_database_connection_pool,
-                    &job_queue_configuration,
-                )
-                .await?;
-            }
-
-            Ok(())
-        });
-
+    info!("Shutting down...");
     do_shutdown.store(true, atomic::Ordering::Relaxed);
 
     info!("Waiting for asynchronous tasks to finish...");

@@ -1,9 +1,12 @@
-use std::str::FromStr;
+use std::{
+    str::FromStr,
+    sync::{atomic, Arc},
+};
 
 use chrono::{DateTime, Duration, Utc};
-use diesel::{dsl::now, ExpressionMethods};
-use strum::{AsRefStr, Display, EnumString};
-use tracing::{debug, instrument, warn};
+use strum::{AsRefStr, Display, EnumIter, EnumString};
+use tokio::task::JoinHandle;
+use tracing::{debug, info, instrument, warn};
 
 mod jobs;
 
@@ -15,7 +18,98 @@ use crate::{
 };
 
 #[instrument(err, skip(database_connection_pool, configuration))]
-pub async fn poll_job_queue_and_execute(
+pub async fn spawn_job_queue_runner(
+    database_connection_pool: &RVocAsyncDatabaseConnectionPool,
+    shutdown_flag: Arc<atomic::AtomicBool>,
+    configuration: &Configuration,
+) -> RVocResult<JoinHandle<RVocResult<()>>> {
+    initialise_job_queue(database_connection_pool, configuration).await?;
+
+    let database_connection_pool = database_connection_pool.clone();
+    let configuration = configuration.clone();
+
+    info!("Spawning job queue runner");
+    Ok(tokio::spawn(async move {
+        use tokio::time;
+
+        let mut interval = time::interval(time::Duration::from_secs(1));
+        interval.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
+
+        while !shutdown_flag.load(atomic::Ordering::Relaxed) {
+            interval.tick().await;
+            poll_job_queue_and_execute(&database_connection_pool, &configuration).await?;
+        }
+
+        Ok(())
+    }))
+}
+
+#[instrument(err, skip(database_connection_pool, configuration))]
+async fn initialise_job_queue(
+    database_connection_pool: &RVocAsyncDatabaseConnectionPool,
+    configuration: &Configuration,
+) -> RVocResult<()> {
+    info!("Initialising job queue");
+
+    database_connection_pool
+        .execute_transaction_with_retries::<_, RVocError>(
+            |database_connection| {
+                Box::pin(async move {
+                    use crate::database::schema::job_queue::dsl::*;
+                    use diesel::{dsl::now, ExpressionMethods};
+                    use diesel_async::RunQueryDsl;
+                    use strum::IntoEnumIterator;
+
+                    let valid_job_names: Vec<_> = JobName::iter().collect();
+
+                    // Insert missing jobs.
+                    diesel::insert_into(job_queue)
+                        .values(
+                            valid_job_names
+                                .iter()
+                                .map(|job_name| {
+                                    (
+                                        scheduled_execution_time.eq(now),
+                                        name.eq(job_name.as_ref()),
+                                        in_progress.eq(false),
+                                    )
+                                })
+                                .collect::<Vec<_>>(),
+                        )
+                        .on_conflict_do_nothing()
+                        .execute(database_connection)
+                        .await?;
+
+                    // Delete unknown jobs.
+                    let deleted_job_names = diesel::delete(job_queue)
+                        .filter(
+                            name.ne_all(
+                                valid_job_names
+                                    .iter()
+                                    .map(AsRef::as_ref)
+                                    .collect::<Vec<_>>(),
+                            ),
+                        )
+                        .returning(name)
+                        .get_results::<String>(database_connection)
+                        .await?;
+
+                    for deleted_job_name in deleted_job_names {
+                        warn!("Deleted unknown scheduled job with name: {deleted_job_name:?}");
+                    }
+
+                    Ok(())
+                })
+            },
+            configuration.maximum_transaction_retry_count,
+        )
+        .await?;
+
+    Ok(())
+}
+
+#[instrument(err, skip(database_connection_pool, configuration))]
+async fn poll_job_queue_and_execute(
     database_connection_pool: &RVocAsyncDatabaseConnectionPool,
     configuration: &Configuration,
 ) -> RVocResult<()> {
@@ -48,6 +142,7 @@ async fn reserve_job(
                     use diesel::OptionalExtension;
                     use diesel::QueryDsl;
                     use diesel::SelectableHelper;
+                    use diesel::{dsl::now, ExpressionMethods};
                     use diesel_async::RunQueryDsl;
 
                     // See if there is a job available.
@@ -180,7 +275,7 @@ async fn complete_job(
         })
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Copy, EnumString, Display, AsRefStr)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, EnumString, Display, AsRefStr, EnumIter)]
 pub enum JobName {
     UpdateWiktionary,
 }
