@@ -5,10 +5,13 @@ use diesel::{dsl::now, ExpressionMethods};
 use strum::{AsRefStr, Display, EnumString};
 use tracing::{debug, instrument, warn};
 
+mod jobs;
+
 use crate::{
     configuration::Configuration,
     database::{model::ScheduledJob, RVocAsyncDatabaseConnectionPool},
     error::{RVocError, RVocResult},
+    job_queue::jobs::update_witkionary::update_witkionary,
 };
 
 #[instrument(err, skip(database_connection_pool, configuration))]
@@ -18,6 +21,10 @@ pub async fn poll_job_queue_and_execute(
 ) -> RVocResult<()> {
     if let Some(job) = reserve_job(database_connection_pool, configuration).await? {
         debug!("Executing job {job:?}");
+
+        match job.name {
+            JobName::UpdateWiktionary => update_witkionary(configuration).await?,
+        }
 
         complete_job(job, database_connection_pool, configuration).await
     } else {

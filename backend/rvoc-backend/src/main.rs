@@ -136,6 +136,7 @@ async fn run_rvoc_backend(configuration: &Configuration) -> RVocResult<()> {
 
     do_shutdown.store(true, atomic::Ordering::Relaxed);
 
+    info!("Waiting for asynchronous tasks to finish...");
     job_queue_join_handle
         .await
         .map_err(|error| RVocError::TokioTaskJoin {
