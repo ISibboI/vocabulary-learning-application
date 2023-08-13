@@ -11,7 +11,7 @@ use crate::{
     configuration::Configuration,
     database::{model::ScheduledJob, RVocAsyncDatabaseConnectionPool},
     error::{RVocError, RVocResult},
-    job_queue::jobs::update_witkionary::update_witkionary,
+    job_queue::jobs::update_witkionary::update_wiktionary,
 };
 
 #[instrument(err, skip(database_connection_pool, configuration))]
@@ -23,7 +23,7 @@ pub async fn poll_job_queue_and_execute(
         debug!("Executing job {job:?}");
 
         match job.name {
-            JobName::UpdateWiktionary => update_witkionary(configuration).await?,
+            JobName::UpdateWiktionary => update_wiktionary(configuration).await?,
         }
 
         complete_job(job, database_connection_pool, configuration).await

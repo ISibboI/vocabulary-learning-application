@@ -35,7 +35,7 @@ diesel_migrations = "2.1.0"
 diesel-async = { version = "0.3.2", features = ["postgres", "deadpool"] }
 
 # wiktionary parsing
-wiktionary-dump-parser = "0.5.1"
+wiktionary-dump-parser = "0.5.2"
 
 # convert enum variants from and to string
 strum = { version = "0.25", features = ["derive"] }
