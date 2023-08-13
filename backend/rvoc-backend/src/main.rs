@@ -1,4 +1,3 @@
-use std::sync::atomic::AtomicBool;
 use std::sync::{atomic, Arc};
 
 use crate::database::migrations::run_migrations;
@@ -109,7 +108,7 @@ async fn run_rvoc_backend(configuration: &Configuration) -> RVocResult<()> {
     let database_connection_pool = create_async_database_connection_pool(configuration).await?;
 
     // Create shutdown flag.
-    let do_shutdown = Arc::new(AtomicBool::new(false));
+    let do_shutdown = Arc::new(atomic::AtomicBool::new(false));
 
     // Start job queue
     let job_queue_join_handle: tokio::task::JoinHandle<Result<(), RVocError>> =

@@ -1,14 +1,10 @@
 use std::{
     str::FromStr,
-    sync::{
-        atomic::{self, AtomicBool},
-        Arc,
-    },
+    sync::{atomic, Arc},
 };
 
 use chrono::{DateTime, Duration, Utc};
-use diesel::{dsl::now, ExpressionMethods};
-use strum::{AsRefStr, Display, EnumString};
+use strum::{AsRefStr, Display, EnumIter, EnumString};
 use tokio::task::JoinHandle;
 use tracing::{debug, info, instrument, warn};
 
@@ -24,7 +20,7 @@ use crate::{
 #[instrument(err, skip(database_connection_pool, configuration))]
 pub async fn spawn_job_queue_runner(
     database_connection_pool: &RVocAsyncDatabaseConnectionPool,
-    shutdown_flag: Arc<AtomicBool>,
+    shutdown_flag: Arc<atomic::AtomicBool>,
     configuration: &Configuration,
 ) -> RVocResult<JoinHandle<RVocResult<()>>> {
     initialise_job_queue(database_connection_pool, configuration).await?;
@@ -54,6 +50,39 @@ async fn initialise_job_queue(
     configuration: &Configuration,
 ) -> RVocResult<()> {
     info!("Initialising job queue");
+
+    database_connection_pool
+        .execute_transaction_with_retries::<_, RVocError>(
+            |database_connection| {
+                Box::pin(async move {
+                    use crate::database::schema::job_queue::dsl::*;
+                    use diesel::{dsl::now, ExpressionMethods};
+                    use diesel_async::RunQueryDsl;
+                    use strum::IntoEnumIterator;
+
+                    diesel::insert_into(job_queue)
+                        .values(
+                            JobName::iter()
+                                .map(|job_name| {
+                                    (
+                                        scheduled_execution_time.eq(now),
+                                        name.eq(job_name.to_string()),
+                                        in_progress.eq(false),
+                                    )
+                                })
+                                .collect::<Vec<_>>(),
+                        )
+                        .on_conflict_do_nothing()
+                        .execute(database_connection)
+                        .await?;
+
+                    Ok(())
+                })
+            },
+            configuration.maximum_transaction_retry_count,
+        )
+        .await?;
+
     Ok(())
 }
 
@@ -91,6 +120,7 @@ async fn reserve_job(
                     use diesel::OptionalExtension;
                     use diesel::QueryDsl;
                     use diesel::SelectableHelper;
+                    use diesel::{dsl::now, ExpressionMethods};
                     use diesel_async::RunQueryDsl;
 
                     // See if there is a job available.
@@ -223,7 +253,7 @@ async fn complete_job(
         })
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Copy, EnumString, Display, AsRefStr)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, EnumString, Display, AsRefStr, EnumIter)]
 pub enum JobName {
     UpdateWiktionary,
 }
