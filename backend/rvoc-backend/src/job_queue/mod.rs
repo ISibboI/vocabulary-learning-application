@@ -60,13 +60,17 @@ async fn initialise_job_queue(
                     use diesel_async::RunQueryDsl;
                     use strum::IntoEnumIterator;
 
+                    let valid_job_names: Vec<_> = JobName::iter().collect();
+
+                    // Insert missing jobs.
                     diesel::insert_into(job_queue)
                         .values(
-                            JobName::iter()
+                            valid_job_names
+                                .iter()
                                 .map(|job_name| {
                                     (
                                         scheduled_execution_time.eq(now),
-                                        name.eq(job_name.to_string()),
+                                        name.eq(job_name.as_ref()),
                                         in_progress.eq(false),
                                     )
                                 })
@@ -75,6 +79,24 @@ async fn initialise_job_queue(
                         .on_conflict_do_nothing()
                         .execute(database_connection)
                         .await?;
+
+                    // Delete unknown jobs.
+                    let deleted_job_names = diesel::delete(job_queue)
+                        .filter(
+                            name.ne_all(
+                                valid_job_names
+                                    .iter()
+                                    .map(AsRef::as_ref)
+                                    .collect::<Vec<_>>(),
+                            ),
+                        )
+                        .returning(name)
+                        .get_results::<String>(database_connection)
+                        .await?;
+
+                    for deleted_job_name in deleted_job_names {
+                        warn!("Deleted unknown scheduled job with name: {deleted_job_name:?}");
+                    }
 
                     Ok(())
                 })
