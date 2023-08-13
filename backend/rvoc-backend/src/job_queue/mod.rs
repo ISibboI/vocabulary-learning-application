@@ -1,9 +1,16 @@
-use std::str::FromStr;
+use std::{
+    str::FromStr,
+    sync::{
+        atomic::{self, AtomicBool},
+        Arc,
+    },
+};
 
 use chrono::{DateTime, Duration, Utc};
 use diesel::{dsl::now, ExpressionMethods};
 use strum::{AsRefStr, Display, EnumString};
-use tracing::{debug, instrument, warn};
+use tokio::task::JoinHandle;
+use tracing::{debug, info, instrument, warn};
 
 mod jobs;
 
@@ -15,7 +22,43 @@ use crate::{
 };
 
 #[instrument(err, skip(database_connection_pool, configuration))]
-pub async fn poll_job_queue_and_execute(
+pub async fn spawn_job_queue_runner(
+    database_connection_pool: &RVocAsyncDatabaseConnectionPool,
+    shutdown_flag: Arc<AtomicBool>,
+    configuration: &Configuration,
+) -> RVocResult<JoinHandle<RVocResult<()>>> {
+    initialise_job_queue(database_connection_pool, configuration).await?;
+
+    let database_connection_pool = database_connection_pool.clone();
+    let configuration = configuration.clone();
+
+    info!("Spawning job queue runner");
+    Ok(tokio::spawn(async move {
+        use tokio::time;
+
+        let mut interval = time::interval(time::Duration::from_secs(1));
+        interval.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
+
+        while !shutdown_flag.load(atomic::Ordering::Relaxed) {
+            interval.tick().await;
+            poll_job_queue_and_execute(&database_connection_pool, &configuration).await?;
+        }
+
+        Ok(())
+    }))
+}
+
+#[instrument(err, skip(database_connection_pool, configuration))]
+async fn initialise_job_queue(
+    database_connection_pool: &RVocAsyncDatabaseConnectionPool,
+    configuration: &Configuration,
+) -> RVocResult<()> {
+    info!("Initialising job queue");
+    Ok(())
+}
+
+#[instrument(err, skip(database_connection_pool, configuration))]
+async fn poll_job_queue_and_execute(
     database_connection_pool: &RVocAsyncDatabaseConnectionPool,
     configuration: &Configuration,
 ) -> RVocResult<()> {
