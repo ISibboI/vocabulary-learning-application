@@ -61,6 +61,11 @@ fn insert_word_buffer(
     database_connection: &mut RVocSyncDatabaseConnection,
     configuration: &Configuration,
 ) -> Result<(), RVocError> {
+    debug!(
+        "Inserting {} wiktionary words into database",
+        word_buffer.len()
+    );
+
     database_connection.execute_sync_transaction_with_retries::<_, RVocError>(
         |database_connection| {
             {
