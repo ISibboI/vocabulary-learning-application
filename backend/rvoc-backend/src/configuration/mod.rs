@@ -58,7 +58,7 @@ impl Configuration {
             )?,
             api_listen_address: read_env_var_with_default_as_type(
                 "API_LISTEN_ADDRESS",
-                SocketAddr::from(([0, 0, 0, 0], 80)),
+                SocketAddr::from(([0, 0, 0, 0], 8093)),
             )?,
             wiktionary_temporary_data_directory: read_env_var_with_default_as_type(
                 "WIKTIONARY_TEMPORARY_DATA_DIRECTORY",
