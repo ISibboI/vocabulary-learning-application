@@ -94,7 +94,13 @@ pub async fn main() -> RVocResult<()> {
 
     match cli {
         Cli::Web => run_rvoc_backend(&configuration).await?,
-        Cli::UpdateWiktionary => run_update_wiktionary(&configuration).await?,
+        Cli::UpdateWiktionary => {
+            run_update_wiktionary(
+                &create_async_database_connection_pool(&configuration).await?,
+                &configuration,
+            )
+            .await?
+        }
         Cli::ApplyMigrations => apply_pending_database_migrations(&configuration).await?,
     }
 
