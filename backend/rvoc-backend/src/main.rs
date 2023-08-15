@@ -8,7 +8,9 @@ use crate::{configuration::Configuration, error::RVocError};
 use clap::Parser;
 use database::create_async_database_connection_pool;
 use database::migrations::has_missing_migrations;
-use tracing::{debug, info, instrument};
+use tracing::{debug, info, instrument, Level};
+use tracing_subscriber::filter::FilterFn;
+use tracing_subscriber::Layer;
 use update_wiktionary::run_update_wiktionary;
 
 mod configuration;
@@ -41,7 +43,12 @@ fn setup_tracing_subscriber(configuration: &Configuration) -> RVocResult<()> {
     use tracing_subscriber::layer::SubscriberExt;
     use tracing_subscriber::Registry;
 
-    let logging_layer = Layer::default().json().with_span_list(true);
+    let logging_layer = Layer::default()
+        .json()
+        .with_span_list(true)
+        .with_filter(FilterFn::new(|metadata| {
+            !(metadata.target().starts_with("tokio_util::") && metadata.level() <= &Level::TRACE)
+        }));
     let subscriber = Registry::default().with(logging_layer);
 
     let with_otel = if let Some(opentelemetry_url) = configuration.opentelemetry_url.as_ref() {
