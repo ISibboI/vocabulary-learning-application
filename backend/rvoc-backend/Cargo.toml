@@ -16,7 +16,7 @@ path = "src/main.rs"
 tokio = {version = "1.29.1", features = []}
 
 # cli - configuration happens via environment variables,
-#       we only use a cli to outsource stuff that does not support async to subprocesses
+#       we only use a cli for manual administrative tasks.
 clap = {version = "4.3.19", features = ["derive"]}
 
 # logging and telemetry
