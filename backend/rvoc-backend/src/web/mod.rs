@@ -52,7 +52,11 @@ async fn shutdown_signal() {
     #[cfg(unix)]
     let sigterm = async {
         match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
-            Ok(handler) => handler.recv().await,
+            Ok(mut handler) => {
+                if handler.recv().await.is_none() {
+                    error!("Received None from SIGTERM handler. This is unexpected.");
+                }
+            }
             Err(error) => error!("Error installing SIGTERM handler: {error}"),
         }
     };
