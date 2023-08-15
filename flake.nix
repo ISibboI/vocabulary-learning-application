@@ -55,7 +55,7 @@
           };
           devShells.default = mkShell {
             inputsFrom = [bin];
-            buildInputs = with pkgs; [dive];
+            buildInputs = with pkgs; [dive wget];
             packages = developmentTools;
             shellHook = ''
               export PGDATA=$PWD/backend/data/postgres_dev_data
