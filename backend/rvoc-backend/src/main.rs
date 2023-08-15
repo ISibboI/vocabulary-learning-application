@@ -3,6 +3,7 @@ use std::sync::{atomic, Arc};
 use crate::database::migrations::run_migrations;
 use crate::error::RVocResult;
 use crate::job_queue::spawn_job_queue_runner;
+use crate::web::run_web_api;
 use crate::{configuration::Configuration, error::RVocError};
 use clap::Parser;
 use database::create_async_database_connection_pool;
@@ -15,6 +16,7 @@ mod database;
 mod error;
 mod job_queue;
 mod update_wiktionary;
+mod web;
 
 /// Decide how to run the application.
 /// This should only be used internally for code that does not support async,
@@ -119,6 +121,10 @@ async fn run_rvoc_backend(configuration: &Configuration) -> RVocResult<()> {
         )
         .await?;
 
+    // Start web API
+    run_web_api(&database_connection_pool, configuration).await?;
+
+    // Shutdown
     info!("Shutting down...");
     do_shutdown.store(true, atomic::Ordering::Relaxed);
 

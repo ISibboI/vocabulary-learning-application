@@ -1,4 +1,4 @@
-use std::{env::VarError, error::Error, path::PathBuf, str::FromStr};
+use std::{env::VarError, error::Error, net::SocketAddr, path::PathBuf, str::FromStr};
 
 use crate::error::{RVocError, RVocResult};
 use chrono::Duration;
@@ -21,6 +21,9 @@ pub struct Configuration {
 
     /// The maximum number of retries for a failed transaction.
     pub maximum_transaction_retry_count: u64,
+
+    /// The address to listen for API requests.
+    pub api_listen_address: SocketAddr,
 
     /// The base directory where wiktionary dumps are stored in.
     pub wiktionary_temporary_data_directory: PathBuf,
@@ -52,6 +55,10 @@ impl Configuration {
             maximum_transaction_retry_count: read_env_var_with_default_as_type(
                 "MAXIMUM_TRANSACTION_RETRY_COUNT",
                 10u64,
+            )?,
+            api_listen_address: read_env_var_with_default_as_type(
+                "API_LISTEN_ADDRESS",
+                SocketAddr::from(([0, 0, 0, 0], 80)),
             )?,
             wiktionary_temporary_data_directory: read_env_var_with_default_as_type(
                 "WIKTIONARY_TEMPORARY_DATA_DIRECTORY",
