@@ -68,6 +68,7 @@ impl RVocSyncDatabaseConnection {
     /// Permanent failures cause the function to return immediately.
     ///
     /// If `max_retries` temporary errors have occurred, then [`PermanentError::too_many_temporary_errors`] is returned.
+    #[allow(dead_code)]
     pub fn execute_sync_transaction_with_retries<
         ReturnType,
         PermanentErrorType: PermanentTransactionError,

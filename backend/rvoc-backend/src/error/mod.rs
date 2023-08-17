@@ -41,6 +41,9 @@ pub enum RVocError {
     #[error("error executing the database migrations: {source}")]
     DatabaseMigration { source: BoxDynError },
 
+    #[error("error while serving API request: {source}")]
+    ApiServerError { source: BoxDynError },
+
     #[error("data directory should be a directory, but is a file: {path:?}")]
     DataDirectoryIsFile { path: PathBuf },
 

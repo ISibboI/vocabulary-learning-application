@@ -31,6 +31,7 @@ pub async fn create_async_database_connection_pool(
 /// Create a sync connection to the database.
 ///
 /// If there are pending database migrations, this method returns an error.
+#[allow(dead_code)]
 pub fn create_sync_database_connection(
     configuration: &Configuration,
 ) -> RVocResult<RVocSyncDatabaseConnection> {

@@ -35,13 +35,16 @@ diesel_migrations = "2.1.0"
 diesel-async = { version = "0.3.2", features = ["postgres", "deadpool"] }
 
 # wiktionary parsing
-wiktionary-dump-parser = "0.5.2"
+wiktionary-dump-parser = "0.6.0"
 
 # convert enum variants from and to string
 strum = { version = "0.25", features = ["derive"] }
 
 # date and time
 chrono = "0.4.26"
+
+# web
+axum = {version = "0.6.20"}
 
 # login and secrets
 password-hash = "0.5.0"

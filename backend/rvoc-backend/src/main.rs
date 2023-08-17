@@ -3,11 +3,14 @@ use std::sync::{atomic, Arc};
 use crate::database::migrations::run_migrations;
 use crate::error::RVocResult;
 use crate::job_queue::spawn_job_queue_runner;
+use crate::web::run_web_api;
 use crate::{configuration::Configuration, error::RVocError};
 use clap::Parser;
 use database::create_async_database_connection_pool;
 use database::migrations::has_missing_migrations;
-use tracing::{debug, info, instrument};
+use tracing::{debug, info, instrument, Level};
+use tracing_subscriber::filter::FilterFn;
+use tracing_subscriber::Layer;
 use update_wiktionary::run_update_wiktionary;
 
 mod configuration;
@@ -15,6 +18,7 @@ mod database;
 mod error;
 mod job_queue;
 mod update_wiktionary;
+mod web;
 
 /// Decide how to run the application.
 /// This should only be used internally for code that does not support async,
@@ -39,7 +43,13 @@ fn setup_tracing_subscriber(configuration: &Configuration) -> RVocResult<()> {
     use tracing_subscriber::layer::SubscriberExt;
     use tracing_subscriber::Registry;
 
-    let logging_layer = Layer::default().json().with_span_list(true);
+    let logging_layer = Layer::default()
+        .json()
+        .with_span_list(true)
+        .with_filter(FilterFn::new(|metadata| {
+            !(metadata.target().starts_with("tokio_util::") && metadata.level() <= &Level::TRACE
+                || metadata.target().starts_with("hyper::") && metadata.level() <= &Level::DEBUG)
+        }));
     let subscriber = Registry::default().with(logging_layer);
 
     let with_otel = if let Some(opentelemetry_url) = configuration.opentelemetry_url.as_ref() {
@@ -92,7 +102,13 @@ pub async fn main() -> RVocResult<()> {
 
     match cli {
         Cli::Web => run_rvoc_backend(&configuration).await?,
-        Cli::UpdateWiktionary => run_update_wiktionary(&configuration).await?,
+        Cli::UpdateWiktionary => {
+            run_update_wiktionary(
+                &create_async_database_connection_pool(&configuration).await?,
+                &configuration,
+            )
+            .await?
+        }
         Cli::ApplyMigrations => apply_pending_database_migrations(&configuration).await?,
     }
 
@@ -119,6 +135,10 @@ async fn run_rvoc_backend(configuration: &Configuration) -> RVocResult<()> {
         )
         .await?;
 
+    // Start web API
+    run_web_api(&database_connection_pool, configuration).await?;
+
+    // Shutdown
     info!("Shutting down...");
     do_shutdown.store(true, atomic::Ordering::Relaxed);
 

@@ -117,7 +117,9 @@ async fn poll_job_queue_and_execute(
         debug!("Executing job {job:?}");
 
         match job.name {
-            JobName::UpdateWiktionary => update_wiktionary(configuration).await?,
+            JobName::UpdateWiktionary => {
+                update_wiktionary(database_connection_pool, configuration).await?
+            }
         }
 
         complete_job(job, database_connection_pool, configuration).await

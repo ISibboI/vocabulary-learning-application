@@ -1,54 +1,66 @@
 use std::path::PathBuf;
+use std::sync::Arc;
 
-use diesel::{ExpressionMethods, NullableExpressionMethods, RunQueryDsl};
 use tokio::fs;
+use tokio::sync::Mutex;
 use tracing::{debug, error, info, instrument};
 use wiktionary_dump_parser::parser::parse_dump_file;
 use wiktionary_dump_parser::parser::words::Word;
 use wiktionary_dump_parser::{language_code::LanguageCode, urls::DumpBaseUrl};
 
-use crate::database::{create_sync_database_connection, RVocSyncDatabaseConnection};
+use crate::database::RVocAsyncDatabaseConnectionPool;
 use crate::error::RVocResult;
 use crate::{configuration::Configuration, error::RVocError};
 
-#[instrument(err, skip(configuration))]
-pub async fn run_update_wiktionary(configuration: &Configuration) -> RVocResult<()> {
+#[instrument(err, skip(database_connection_pool, configuration))]
+pub async fn run_update_wiktionary(
+    database_connection_pool: &RVocAsyncDatabaseConnectionPool,
+    configuration: &Configuration,
+) -> RVocResult<()> {
     info!("Updating wiktionary data");
     debug!("Configuration: {configuration:#?}");
 
     let new_dump_file = update_wiktionary_dump_files(configuration).await?;
     // expect the extension to be ".tar.bz2", and replace it with ".log"
     let error_log = new_dump_file.with_extension("").with_extension("log");
-    let mut database_connection = create_sync_database_connection(configuration)?;
 
-    debug!("Parsing wiktionary dump file {new_dump_file:?}");
-    let mut word_buffer = Vec::new();
-    parse_dump_file(
-        new_dump_file,
-        Option::<PathBuf>::None,
-        |word| {
-            word_buffer.push(word);
+    // This is a bit laborious, but without proper scoping we cannot pass the buffer
+    // to parse_dump_file otherwise.
+    let word_buffer = Arc::new(Mutex::new(Vec::new()));
 
-            if word_buffer.len() >= configuration.wiktionary_dump_insertion_batch_size {
-                insert_word_buffer(&mut word_buffer, &mut database_connection, configuration)?;
-            }
+    {
+        let word_buffer = word_buffer.clone();
+        debug!("Parsing wiktionary dump file {new_dump_file:?}");
+        parse_dump_file(
+            new_dump_file,
+            Option::<PathBuf>::None,
+            |word| async {
+                let mut word_buffer = word_buffer.lock().await;
+                word_buffer.push(word);
 
-            Ok(())
-        },
-        error_log,
-        false,
-    )
-    .await
-    .map_err(|error| RVocError::ParseWiktionaryDump {
-        source: Box::new(error),
-    })?;
+                if word_buffer.len() >= configuration.wiktionary_dump_insertion_batch_size {
+                    insert_word_buffer(&mut word_buffer, database_connection_pool, configuration)
+                        .await?;
+                }
 
-    if !word_buffer.is_empty() {
-        insert_word_buffer(&mut word_buffer, &mut database_connection, configuration).map_err(
-            |error| RVocError::ParseWiktionaryDump {
-                source: Box::new(error),
+                Ok(())
             },
-        )?;
+            error_log,
+            false,
+        )
+        .await
+        .map_err(|error| RVocError::ParseWiktionaryDump {
+            source: Box::new(error),
+        })?;
+    }
+
+    let mut word_buffer = Arc::into_inner(word_buffer).unwrap().into_inner();
+    if !word_buffer.is_empty() {
+        insert_word_buffer(&mut word_buffer, database_connection_pool, configuration)
+            .await
+            .map_err(|error| RVocError::ParseWiktionaryDump {
+                source: Box::new(error),
+            })?;
     }
 
     info!("Success!");
@@ -56,75 +68,93 @@ pub async fn run_update_wiktionary(configuration: &Configuration) -> RVocResult<
     Ok(())
 }
 
-fn insert_word_buffer(
+async fn insert_word_buffer(
     word_buffer: &mut Vec<Word>,
-    database_connection: &mut RVocSyncDatabaseConnection,
+    database_connection_pool: &RVocAsyncDatabaseConnectionPool,
     configuration: &Configuration,
 ) -> Result<(), RVocError> {
-    database_connection.execute_sync_transaction_with_retries::<_, RVocError>(
-        |database_connection| {
-            {
+    debug!(
+        "Inserting {} wiktionary words into database",
+        word_buffer.len()
+    );
+
+    database_connection_pool
+        .execute_transaction_with_retries::<_, RVocError>(
+            |database_connection| {
                 use crate::database::schema::*;
+                use diesel::ExpressionMethods;
+                use diesel::NullableExpressionMethods;
+                use diesel::QueryDsl;
+                use diesel_async::RunQueryDsl;
 
-                diesel::insert_into(languages::table)
-                    .values(
-                        &word_buffer
-                            .iter()
-                            .map(|word| languages::english_name.eq(&word.language_english_name))
-                            .collect::<Vec<_>>(),
-                    )
-                    .on_conflict_do_nothing()
-                    .execute(database_connection)?;
-
-                diesel::insert_into(word_types::table)
-                    .values(
-                        &word_buffer
-                            .iter()
-                            .map(|word| word_types::english_name.eq(&word.word_type))
-                            .collect::<Vec<_>>(),
-                    )
-                    .on_conflict_do_nothing()
-                    .execute(database_connection)?;
-            }
-
-            // query:
-            // INSERT INTO words (word, word_type, language) VALUES (
-            //    "...",
-            //    (SELECT id FROM word_types WHERE english_name = "..."),
-            //    (SELECT id FROM languages WHERE english_name = "...")
-            // );
-
-            use crate::database::schema::*;
-            use diesel::QueryDsl;
-
-            diesel::insert_into(words::table)
-                .values(
-                    word_buffer
-                        .iter()
-                        .map(|word| {
-                            (
-                                words::word.eq(&word.word),
-                                words::language.eq(languages::table
-                                    .select(languages::id)
-                                    .filter(languages::english_name.eq(&word.language_english_name))
-                                    .single_value()
-                                    .assume_not_null()),
-                                words::word_type.eq(word_types::table
-                                    .select(word_types::id)
-                                    .filter(word_types::english_name.eq(&word.word_type))
-                                    .single_value()
-                                    .assume_not_null()),
+                Box::pin(async {
+                    {
+                        diesel::insert_into(languages::table)
+                            .values(
+                                &word_buffer
+                                    .iter()
+                                    .map(|word| {
+                                        languages::english_name.eq(&word.language_english_name)
+                                    })
+                                    .collect::<Vec<_>>(),
                             )
-                        })
-                        .collect::<Vec<_>>(),
-                )
-                .on_conflict_do_nothing()
-                .execute(database_connection)?;
+                            .on_conflict_do_nothing()
+                            .execute(database_connection)
+                            .await?;
 
-            Ok(())
-        },
-        configuration.maximum_transaction_retry_count,
-    )?;
+                        diesel::insert_into(word_types::table)
+                            .values(
+                                &word_buffer
+                                    .iter()
+                                    .map(|word| word_types::english_name.eq(&word.word_type))
+                                    .collect::<Vec<_>>(),
+                            )
+                            .on_conflict_do_nothing()
+                            .execute(database_connection)
+                            .await?;
+                    }
+
+                    // query:
+                    // INSERT INTO words (word, word_type, language) VALUES (
+                    //    "...",
+                    //    (SELECT id FROM word_types WHERE english_name = "..."),
+                    //    (SELECT id FROM languages WHERE english_name = "...")
+                    // );
+
+                    diesel::insert_into(words::table)
+                        .values(
+                            word_buffer
+                                .iter()
+                                .map(|word| {
+                                    (
+                                        words::word.eq(&word.word),
+                                        words::language.eq(languages::table
+                                            .select(languages::id)
+                                            .filter(
+                                                languages::english_name
+                                                    .eq(&word.language_english_name),
+                                            )
+                                            .single_value()
+                                            .assume_not_null()),
+                                        words::word_type.eq(word_types::table
+                                            .select(word_types::id)
+                                            .filter(word_types::english_name.eq(&word.word_type))
+                                            .single_value()
+                                            .assume_not_null()),
+                                    )
+                                })
+                                .collect::<Vec<_>>(),
+                        )
+                        .on_conflict_do_nothing()
+                        .execute(database_connection)
+                        .await?;
+
+                    Ok(())
+                })
+            },
+            configuration.maximum_transaction_retry_count,
+        )
+        .await?;
 
     word_buffer.clear();
     Ok(())
