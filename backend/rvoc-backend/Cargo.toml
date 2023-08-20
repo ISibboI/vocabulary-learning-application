@@ -14,6 +14,7 @@ path = "src/main.rs"
 [dependencies]
 # runtime
 tokio = {version = "1.29.1", features = []}
+async-trait = "0.1.73"
 
 # cli - configuration happens via environment variables,
 #       we only use a cli for manual administrative tasks.
@@ -45,8 +46,11 @@ chrono = "0.4.26"
 
 # web
 axum = {version = "0.6.20"}
+tower = "0.4.13"
 
 # login and secrets
+typed-session = "0.7.2"
+typed-session-axum = "0.2.1"
 password-hash = "0.5.0"
 argon2 = "0.5.1"
 rand = "0.8.5"
