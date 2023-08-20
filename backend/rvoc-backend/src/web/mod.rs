@@ -7,14 +7,16 @@ use crate::{
     error::{RVocError, RVocResult},
 };
 
-#[instrument(err, skip(_database_connection_pool, configuration))]
+#[instrument(err, skip(database_connection_pool, configuration))]
 pub async fn run_web_api(
-    _database_connection_pool: &RVocAsyncDatabaseConnectionPool,
+    database_connection_pool: RVocAsyncDatabaseConnectionPool,
     configuration: &Configuration,
 ) -> RVocResult<()> {
     info!("Starting web API");
 
-    let router = Router::new().route("/", get(hello_world));
+    let router = Router::new()
+        .route("/", get(hello_world))
+        .with_state(database_connection_pool);
 
     debug!(
         "Listening for API requests on {}",

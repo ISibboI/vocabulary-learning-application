@@ -19,14 +19,11 @@ use crate::{
 
 #[instrument(err, skip(database_connection_pool, configuration))]
 pub async fn spawn_job_queue_runner(
-    database_connection_pool: &RVocAsyncDatabaseConnectionPool,
+    database_connection_pool: RVocAsyncDatabaseConnectionPool,
     shutdown_flag: Arc<atomic::AtomicBool>,
-    configuration: &Configuration,
+    configuration: Configuration,
 ) -> RVocResult<JoinHandle<RVocResult<()>>> {
-    initialise_job_queue(database_connection_pool, configuration).await?;
-
-    let database_connection_pool = database_connection_pool.clone();
-    let configuration = configuration.clone();
+    initialise_job_queue(&database_connection_pool, &configuration).await?;
 
     info!("Spawning job queue runner");
     Ok(tokio::spawn(async move {
