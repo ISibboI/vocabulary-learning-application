@@ -1,9 +1,4 @@
 #[derive(Debug)]
-pub struct User {
-    name: Username,
-}
-
-#[derive(Debug)]
 pub struct Username {
     name: String,
 }
@@ -11,10 +6,6 @@ pub struct Username {
 impl Username {
     pub fn new(name: String) -> Self {
         Self { name }
-    }
-
-    pub fn into_string(self) -> String {
-        self.name
     }
 }
 

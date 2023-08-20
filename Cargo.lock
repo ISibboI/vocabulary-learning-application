@@ -2425,9 +2425,9 @@ checksum = "3528ecfd12c466c6f163363caf2d02a71161dd5e1cc6ae7b34207ea2d42d81ed"
 
 [[package]]
 name = "typed-session"
-version = "0.7.2"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cff8d421b13a6e83243c256e9aeb66bc7249b4b40566acb12b1349bcface67a6"
+checksum = "90976386918107715d5ba4108217f3910657bd786c53be7a2c11d8efb7be20f6"
 dependencies = [
  "async-trait",
  "blake3",
@@ -2438,9 +2438,9 @@ dependencies = [
 
 [[package]]
 name = "typed-session-axum"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c002883f1b13f3a7a331e01701cf8523558d30c47f4e8c4b1ddf957d6c04d609"
+checksum = "55295768d0584fca01d5e041027cc6576555c0e803284fc2f25bed7b83c52956"
 dependencies = [
  "async-trait",
  "axum",
