@@ -25,6 +25,11 @@ pub struct Configuration {
     /// The address to listen for API requests.
     pub api_listen_address: SocketAddr,
 
+    /// The maximum number of retries for generating a random session id.
+    /// In case a session id is generated that already exists, its generation has to be retried.
+    /// If more tries happen than this number, the request will fail.
+    pub maximum_session_id_generation_retry_count: u32,
+
     /// The base directory where wiktionary dumps are stored in.
     pub wiktionary_temporary_data_directory: PathBuf,
 
@@ -59,6 +64,10 @@ impl Configuration {
             api_listen_address: read_env_var_with_default_as_type(
                 "API_LISTEN_ADDRESS",
                 SocketAddr::from(([0, 0, 0, 0], 8093)),
+            )?,
+            maximum_session_id_generation_retry_count: read_env_var_with_default_as_type(
+                "MAXIMUM_SESSION_ID_GENERATION_RETRY_COUNT",
+                10u32,
             )?,
             wiktionary_temporary_data_directory: read_env_var_with_default_as_type(
                 "WIKTIONARY_TEMPORARY_DATA_DIRECTORY",

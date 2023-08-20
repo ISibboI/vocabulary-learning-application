@@ -1,0 +1,4 @@
+CREATE TABLE sessions (
+	id BYTEA PRIMARY KEY,
+	expiry TIMESTAMPTZ NOT NULL
+);

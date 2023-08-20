@@ -1,20 +1,50 @@
-use axum::{routing::get, Router};
+use std::{convert::Infallible, fmt::Display};
+
+use axum::{error_handling::HandleErrorLayer, http::StatusCode, routing::get, Extension, Router};
+use tower::ServiceBuilder;
 use tracing::{debug, error, info, instrument};
+use typed_session_axum::{SessionLayer, SessionLayerError};
 
 use crate::{
     configuration::Configuration,
     database::RVocAsyncDatabaseConnectionPool,
     error::{RVocError, RVocResult},
+    web::session::{RVocSessionData, RVocSessionStoreConnector},
 };
 
-#[instrument(err, skip(_database_connection_pool, configuration))]
+mod session;
+mod user;
+
+#[instrument(err, skip(database_connection_pool, configuration))]
 pub async fn run_web_api(
-    _database_connection_pool: &RVocAsyncDatabaseConnectionPool,
+    database_connection_pool: RVocAsyncDatabaseConnectionPool,
     configuration: &Configuration,
 ) -> RVocResult<()> {
     info!("Starting web API");
 
-    let router = Router::new().route("/", get(hello_world));
+    async fn handle_session_layer_error<
+        SessionStoreConnectorError: Display,
+        InnerError: Display,
+    >(
+        error: SessionLayerError<SessionStoreConnectorError, InnerError>,
+    ) -> StatusCode {
+        error!("Session layer error: {error}");
+        StatusCode::INTERNAL_SERVER_ERROR
+    }
+
+    let router = Router::new()
+        .route("/", get(hello_world))
+        .layer(
+            ServiceBuilder::new()
+                .layer(HandleErrorLayer::new(
+                    handle_session_layer_error::<RVocError, Infallible>,
+                ))
+                .layer(SessionLayer::<RVocSessionData, RVocSessionStoreConnector>::new()),
+        )
+        .layer(Extension(RVocSessionStoreConnector::new(
+            database_connection_pool,
+            configuration,
+        )));
 
     debug!(
         "Listening for API requests on {}",

@@ -129,14 +129,14 @@ async fn run_rvoc_backend(configuration: &Configuration) -> RVocResult<()> {
     // Start job queue
     let job_queue_join_handle: tokio::task::JoinHandle<Result<(), RVocError>> =
         spawn_job_queue_runner(
-            &database_connection_pool,
+            database_connection_pool.clone(),
             do_shutdown.clone(),
-            configuration,
+            configuration.clone(),
         )
         .await?;
 
     // Start web API
-    run_web_api(&database_connection_pool, configuration).await?;
+    run_web_api(database_connection_pool, configuration).await?;
 
     // Shutdown
     info!("Shutting down...");
