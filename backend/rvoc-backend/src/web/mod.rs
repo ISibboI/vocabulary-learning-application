@@ -9,7 +9,7 @@ use crate::{
     configuration::Configuration,
     database::RVocAsyncDatabaseConnectionPool,
     error::{RVocError, RVocResult},
-    web::session::{RVocSessionStoreConnector, RVocSessionData},
+    web::session::{RVocSessionData, RVocSessionStoreConnector},
 };
 
 mod session;

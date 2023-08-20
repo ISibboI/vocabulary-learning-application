@@ -45,7 +45,7 @@ pub enum RVocError {
     ApiServerError { source: BoxDynError },
 
     #[error("error while inserting session to database: {source}")]
-    InsertSession {source: BoxDynError},
+    InsertSession { source: BoxDynError },
 
     #[error("data directory should be a directory, but is a file: {path:?}")]
     DataDirectoryIsFile { path: PathBuf },

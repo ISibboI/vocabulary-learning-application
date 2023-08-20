@@ -59,52 +59,45 @@ impl SessionStoreConnector<RVocSessionData> for RVocSessionStoreConnector {
     ) -> Result<WriteSessionResult, typed_session::Error<Self::Error>> {
         match self
             .database_connection_pool
-            .execute_transaction_with_retries::<_, TryInsertSessionError>(
-                |database_connection| {
-                    Box::pin(async {
-                        use crate::database::schema::sessions::dsl::*;
+            .execute_transaction::<_, TryInsertSessionError>(|database_connection| {
+                Box::pin(async {
+                    use crate::database::schema::sessions::dsl::*;
 
-                        RVocSessionInsertable::new(current_id, session_expiry, data)
-                            .insert_into(sessions)
-                            .execute(database_connection)
-                            .await
-                            .map_err(|error| match error {
-                                diesel::result::Error::DatabaseError(
-                                    diesel::result::DatabaseErrorKind::UniqueViolation,
-                                    database_error_information,
-                                ) => {
-                                    if database_error_information.table_name() == Some("sessions")
-                                        && database_error_information.column_name() == Some("id")
-                                    {
-                                        TryInsertSessionError::SessionIdExists
-                                    } else {
-                                        TryInsertSessionError::Permanent(
-                                            diesel::result::Error::DatabaseError(
-                                                diesel::result::DatabaseErrorKind::UniqueViolation,
-                                                database_error_information,
-                                            )
-                                            .into(),
+                    RVocSessionInsertable::new(current_id, session_expiry, data)
+                        .insert_into(sessions)
+                        .execute(database_connection)
+                        .await
+                        .map_err(|error| match error {
+                            diesel::result::Error::DatabaseError(
+                                diesel::result::DatabaseErrorKind::UniqueViolation,
+                                database_error_information,
+                            ) => {
+                                if database_error_information.table_name() == Some("sessions")
+                                    && database_error_information.column_name() == Some("id")
+                                {
+                                    TryInsertSessionError::SessionIdExists
+                                } else {
+                                    TryInsertSessionError::Error(
+                                        diesel::result::Error::DatabaseError(
+                                            diesel::result::DatabaseErrorKind::UniqueViolation,
+                                            database_error_information,
                                         )
-                                    }
+                                        .into(),
+                                    )
                                 }
-                                error => TryInsertSessionError::Permanent(error.into()),
-                            })
-                            .map_err(|error| TransactionError::Permanent(error.into()))?;
+                            }
+                            error => TryInsertSessionError::Error(error.into()),
+                        })?;
 
-                        Ok(())
-                    })
-                },
-                0,
-            )
+                    Ok(())
+                })
+            })
             .await
         {
             Ok(()) => Ok(WriteSessionResult::Ok(())),
             Err(TryInsertSessionError::SessionIdExists) => Ok(WriteSessionResult::SessionIdExists),
-            Err(TryInsertSessionError::Permanent(error)) => {
+            Err(TryInsertSessionError::Error(error)) => {
                 Err(RVocError::InsertSession { source: error })
-            }
-            Err(TryInsertSessionError::TooManyTemporaryErrors(amount)) => {
-                Err(RVocError::DatabaseTransactionRetryLimitReached { limit: amount })
             }
         }
         .map_err(typed_session::Error::SessionStoreConnector)
@@ -168,19 +161,13 @@ impl<'a> RVocSessionInsertable<'a> {
 #[derive(Debug, Error)]
 enum TryInsertSessionError {
     #[error("permanent transaction error: {0}")]
-    Permanent(BoxDynError),
-    #[error("too many temporary transaction errors: {0}")]
-    TooManyTemporaryErrors(u64),
+    Error(BoxDynError),
     #[error("session id exists")]
     SessionIdExists,
 }
 
 impl PermanentTransactionError for TryInsertSessionError {
-    fn too_many_temporary_errors(limit: u64) -> Self {
-        Self::TooManyTemporaryErrors(limit)
-    }
-
     fn permanent_error(source: crate::error::BoxDynError) -> Self {
-        Self::Permanent(source)
+        Self::Error(source)
     }
 }
