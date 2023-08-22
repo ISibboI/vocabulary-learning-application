@@ -1,3 +1,12 @@
+use self::hashed_password::HashedPassword;
+
+pub mod hashed_password;
+
+pub struct User {
+    name: Username,
+    password: HashedPassword,
+}
+
 #[derive(Debug)]
 pub struct Username {
     name: String,

@@ -25,6 +25,34 @@ pub struct Configuration {
     /// The address to listen for API requests.
     pub api_listen_address: SocketAddr,
 
+    /// The minimum length of a password.
+    /// See the [OWASP authentication cheat sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html#implement-proper-password-strength-controls)
+    /// for how to set this if you want to set it manually.
+    pub minimum_password_length: usize,
+
+    /// The maximum length of a password.
+    /// See the [OWASP authentication cheat sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html#implement-proper-password-strength-controls)
+    /// for how to set this if you want to set it manually.
+    pub maximum_password_length: usize,
+
+    /// An additional salt that is shared between all passwords, but not stored in the database.
+    pub password_pepper: SecStr,
+
+    /// The minimum memory parameter of the Argon2id password hash function.
+    /// See the [OWASP password storage cheat sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#argon2id)
+    /// for how to set this if you want to set it manually.
+    pub password_argon2id_minimum_memory_kib: u32,
+
+    /// The minimum memory parameter of the Argon2id password hash function.
+    /// See the [OWASP password storage cheat sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#argon2id)
+    /// for how to set this if you want to set it manually.
+    pub password_argon2id_minimum_iterations: u32,
+
+    /// The minimum memory parameter of the Argon2id password hash function.
+    /// See the [OWASP password storage cheat sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#argon2id)
+    /// for how to set this if you want to set it manually.
+    pub password_argon2id_parallelism: u32,
+
     /// The maximum number of retries for generating a random session id.
     /// In case a session id is generated that already exists, its generation has to be retried.
     /// If more tries happen than this number, the request will fail.
@@ -43,7 +71,7 @@ pub struct Configuration {
 impl Configuration {
     /// Read the configuration values from environment variables.
     pub fn from_environment() -> RVocResult<Self> {
-        Ok(Self {
+        let result = Self {
             postgres_url: read_env_var_with_default_as_type(
                 "POSTGRES_RVOC_URL",
                 "postgres://rvoc@localhost/rvoc",
@@ -65,6 +93,27 @@ impl Configuration {
                 "API_LISTEN_ADDRESS",
                 SocketAddr::from(([0, 0, 0, 0], 8093)),
             )?,
+            minimum_password_length: read_env_var_with_default_as_type(
+                "MINIMUM_PASSWORD_LENGTH",
+                8usize,
+            )?,
+            maximum_password_length: read_env_var_with_default_as_type(
+                "MAXIMUM_PASSWORD_LENGTH",
+                100usize,
+            )?,
+            password_pepper: read_env_var_as_type("PASSWORD_PEPPER")?,
+            password_argon2id_minimum_memory_kib: read_env_var_with_default_as_type(
+                "PASSWORD_ARGON2ID_MINIMUM_MEMORY_KIB",
+                19456u32,
+            )?,
+            password_argon2id_minimum_iterations: read_env_var_with_default_as_type(
+                "PASSWORD_ARGON2ID_MINIMUM_ITERATIONS",
+                2u32,
+            )?,
+            password_argon2id_parallelism: read_env_var_with_default_as_type(
+                "PASSWORD_ARGON2ID_PARALLELISM",
+                1u32,
+            )?,
             maximum_session_id_generation_retry_count: read_env_var_with_default_as_type(
                 "MAXIMUM_SESSION_ID_GENERATION_RETRY_COUNT",
                 10u32,
@@ -81,7 +130,42 @@ impl Configuration {
                 "WIKTIONARY_POLL_INTERVAL_HOURS",
                 24,
             )?),
-        })
+        };
+
+        let password_pepper_length = result.password_pepper.unsecure().len();
+        let password_pepper_min_length = 8;
+        let password_pepper_max_length = 64;
+
+        if password_pepper_length < password_pepper_min_length
+            || password_pepper_length > password_pepper_max_length
+        {
+            return Err(RVocError::PasswordPepperLength {
+                actual: password_pepper_length,
+                minimum: password_pepper_min_length,
+                maximum: password_pepper_max_length,
+            });
+        }
+
+        let minimum_password_length_minimum = 8;
+        if result.minimum_password_length < minimum_password_length_minimum {
+            return Err(RVocError::MinimumPasswordLength {
+                actual: result.minimum_password_length,
+                minimum: minimum_password_length_minimum,
+            });
+        }
+
+        result.build_argon2_parameters()?;
+
+        Ok(result)
+    }
+
+    pub fn build_argon2_parameters(&self) -> RVocResult<argon2::Params> {
+        argon2::ParamsBuilder::new()
+            .m_cost(self.password_argon2id_minimum_memory_kib)
+            .t_cost(self.password_argon2id_minimum_iterations)
+            .p_cost(self.password_argon2id_parallelism)
+            .build()
+            .map_err(|error| RVocError::PasswordArgon2IdParameters { error })
     }
 }
 

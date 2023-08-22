@@ -44,6 +44,24 @@ pub enum RVocError {
     #[error("error while serving API request: {source}")]
     ApiServerError { source: BoxDynError },
 
+    #[error(
+        "the password pepper string's length ({actual}) is out of range: [{minimum}, {maximum}]"
+    )]
+    PasswordPepperLength {
+        actual: usize,
+        minimum: usize,
+        maximum: usize,
+    },
+
+    #[error("the minimum password length is too low: {actual} < {minimum}")]
+    MinimumPasswordLength { actual: usize, minimum: usize },
+
+    #[error("the parameters to the argon password function are wrong: {error}")]
+    PasswordArgon2IdParameters { error: argon2::Error },
+
+    #[error("password hashing went wrong: {source}")]
+    PasswordArgon2IdHash { source: BoxDynError },
+
     #[error("error while inserting session to database: {source}")]
     InsertSession { source: BoxDynError },
 
