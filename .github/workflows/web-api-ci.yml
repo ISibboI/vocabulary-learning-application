@@ -38,5 +38,5 @@ jobs:
         path: /nix/store
         key: ${{ runner.os }}-${{ hashFiles('flake.*') }}
 
-    - run: nix build
+    - run: nix build .#debugDockerImage
     - run: nix flake check
