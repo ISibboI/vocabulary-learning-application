@@ -26,14 +26,14 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v3
 
-    - name: Cache /nix
-      uses: actions/cache@v3
-      with:
-        path: /nix
-        key: ${{ runner.os }}-${{ hashFiles('flake.*') }}
-
     - name: Install nix
       uses: cachix/install-nix-action@v22
+
+    - name: Cache /nix/store
+      uses: actions/cache@v3
+      with:
+        path: /nix/store
+        key: ${{ runner.os }}-${{ hashFiles('flake.*') }}
 
     - run: nix build -v
     - run: nix flake check
