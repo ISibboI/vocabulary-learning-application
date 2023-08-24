@@ -36,6 +36,13 @@
           commonArgs = {
             inherit src buildInputs nativeBuildInputs;
           };
+          cargoDebugArtifacts = craneLib.buildDepsOnly(commonArgs // {
+            cargoBuildCommand = "cargo build --profile debug";
+          });
+          debugBin = craneLib.buildPackage(commonArgs // {
+            inherit cargoDebugArtifacts;
+            cargoBuildCommand = "cargo build --profile debug";
+          });
           cargoArtifacts = craneLib.buildDepsOnly commonArgs;
           bin = craneLib.buildPackage(commonArgs // {inherit cargoArtifacts;});
           dockerImage = pkgs.dockerTools.streamLayeredImage {
@@ -46,11 +53,19 @@
               Cmd = ["${bin}/bin/rvoc-backend"];
             };
           };
+          debugDockerImage = pkgs.dockerTools.streamLayeredImage {
+            name = "rvoc-backend";
+            tag = "latest";
+            contents = [debugBin pkgs.cacert];
+            config = {
+              Cmd = ["${debugBin}/bin/rvoc-backend"];
+            };
+          };
         in
         with pkgs;
         {
           packages = {
-            inherit bin dockerImage;
+            inherit bin debugBin dockerImage debugDockerImage;
             default = bin;
           };
           devShells.default = mkShell {
