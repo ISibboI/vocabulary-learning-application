@@ -1,5 +1,7 @@
 use argon2::Argon2;
 use argon2::PasswordHasher;
+use password_hash::PasswordHash;
+use password_hash::PasswordVerifier;
 use password_hash::{rand_core::OsRng, SaltString};
 use secstr::SecStr;
 
@@ -7,6 +9,9 @@ use crate::{
     configuration::Configuration,
     error::{RVocError, RVocResult},
 };
+
+static HASH_ALGORITHM: argon2::Algorithm = argon2::Algorithm::Argon2id;
+static HASH_ALGORITHM_VERSION: argon2::Version = argon2::Version::V0x13;
 
 #[derive(Debug)]
 pub struct HashedPassword {
@@ -27,12 +32,14 @@ impl HashedPassword {
 
         let argon2 = Argon2::new_with_secret(
             configuration.password_pepper.unsecure(),
-            argon2::Algorithm::Argon2id,
-            argon2::Version::V0x13,
+            HASH_ALGORITHM,
+            HASH_ALGORITHM_VERSION,
             // the correctness of the parameters was checked when creating the configuration
             configuration.build_argon2_parameters()?,
         )
-        .map_err(|error| RVocError::PasswordArgon2IdParameters { error })?;
+        .map_err(|error| RVocError::PasswordArgon2IdParameters {
+            source: Box::new(error),
+        })?;
 
         let argon_hash = argon2
             .hash_password(plaintext_password.unsecure(), &salt)
@@ -43,5 +50,53 @@ impl HashedPassword {
             .into();
 
         Ok(Self { argon_hash })
+    }
+
+    pub fn verify(
+        &mut self,
+        plaintext_password: SecStr,
+        configuration: &Configuration,
+    ) -> RVocResult<bool> {
+        let parsed_hash =
+            PasswordHash::new(std::str::from_utf8(self.argon_hash.unsecure()).map_err(
+                |error| RVocError::PasswordArgon2IdVerify {
+                    source: Box::new(error),
+                },
+            )?)
+            .map_err(|error| RVocError::PasswordArgon2IdVerify {
+                source: Box::new(error),
+            })?;
+
+        match Argon2::default().verify_password(plaintext_password.unsecure(), &parsed_hash) {
+            Ok(()) => {
+                if self.did_parameters_change(&parsed_hash, configuration)? {
+                    *self = Self::new(plaintext_password, configuration)?;
+                }
+                Ok(true)
+            }
+            Err(argon2::password_hash::Error::Password) => Ok(false),
+            Err(error) => Err(RVocError::PasswordArgon2IdVerify {
+                source: Box::new(error),
+            }),
+        }
+    }
+
+    /// Check if the password hashing parameters are different from the ones used for this hash.
+    fn did_parameters_change(
+        &self,
+        parsed_hash: &PasswordHash<'_>,
+        configuration: &Configuration,
+    ) -> RVocResult<bool> {
+        let algorithm_identifier = parsed_hash.algorithm;
+        let algorithm_version = parsed_hash.version;
+        let algorithm_parameters = argon2::Params::try_from(parsed_hash).map_err(|error| {
+            RVocError::PasswordArgon2IdRehash {
+                source: Box::new(error),
+            }
+        })?;
+
+        Ok(algorithm_identifier != HASH_ALGORITHM.ident()
+            || algorithm_version != Some(HASH_ALGORITHM_VERSION.into())
+            || algorithm_parameters != configuration.build_argon2_parameters()?)
     }
 }

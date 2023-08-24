@@ -56,11 +56,17 @@ pub enum RVocError {
     #[error("the minimum password length is too low: {actual} < {minimum}")]
     MinimumPasswordLength { actual: usize, minimum: usize },
 
-    #[error("the parameters to the argon password function are wrong: {error}")]
-    PasswordArgon2IdParameters { error: argon2::Error },
+    #[error("the parameters to the argon password function are wrong: {source}")]
+    PasswordArgon2IdParameters { source: BoxDynError },
 
     #[error("password hashing went wrong: {source}")]
     PasswordArgon2IdHash { source: BoxDynError },
+
+    #[error("password verification went wrong: {source}")]
+    PasswordArgon2IdVerify { source: BoxDynError },
+
+    #[error("password rehashing went wrong: {source}")]
+    PasswordArgon2IdRehash { source: BoxDynError },
 
     #[error("error while inserting session to database: {source}")]
     InsertSession { source: BoxDynError },

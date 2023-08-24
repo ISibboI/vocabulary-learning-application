@@ -165,7 +165,9 @@ impl Configuration {
             .t_cost(self.password_argon2id_minimum_iterations)
             .p_cost(self.password_argon2id_parallelism)
             .build()
-            .map_err(|error| RVocError::PasswordArgon2IdParameters { error })
+            .map_err(|error| RVocError::PasswordArgon2IdParameters {
+                source: Box::new(error),
+            })
     }
 }
 
