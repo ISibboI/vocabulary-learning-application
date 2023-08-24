@@ -46,11 +46,11 @@
             inherit src buildInputs nativeBuildInputs;
           };
           cargoDebugArtifacts = craneLib.buildDepsOnly(commonArgs // {
-            cargoBuildCommand = "cargo build --profile debug";
+            cargoBuildCommand = "cargo build --profile dev";
           });
           debugBin = craneLib.buildPackage(commonArgs // {
             inherit cargoDebugArtifacts;
-            cargoBuildCommand = "cargo build --profile debug";
+            cargoBuildCommand = "cargo build --profile dev";
           });
           cargoArtifacts = craneLib.buildDepsOnly commonArgs;
           bin = craneLib.buildPackage(commonArgs // {inherit cargoArtifacts;});
