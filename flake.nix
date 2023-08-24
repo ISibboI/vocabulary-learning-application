@@ -29,7 +29,15 @@
           };
           rustToolchain = pkgs.pkgsBuildHost.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
           craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
-          src = craneLib.cleanCargoSource ./.;
+          src = lib.cleanSourceWith {
+            src = ./.; # The original, unfiltered source
+            filter = path: type:
+              # Allow sql files for migrations
+              (lib.hasSuffix "\.sql" path) ||
+              # Default filter from crane (allow .rs files)
+              (craneLib.filterCargoSources path type)
+            ;
+        };
           nativeBuildInputs = with pkgs; [rustToolchain pkg-config];
           buildInputs = with pkgs; [rustToolchain openssl];
           developmentTools = with pkgs; [(diesel-cli.override {sqliteSupport = false; mysqlSupport = false;}) postgresql];
