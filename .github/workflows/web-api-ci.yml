@@ -35,5 +35,5 @@ jobs:
         path: /nix/store
         key: ${{ runner.os }}-${{ hashFiles('flake.*') }}
 
-    - run: nix build -v
+    - run: nix build -vv
     - run: nix flake check
