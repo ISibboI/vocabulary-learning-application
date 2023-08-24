@@ -1,14 +1,17 @@
 use std::{env::VarError, error::Error, net::SocketAddr, path::PathBuf, str::FromStr};
 
-use crate::error::{RVocError, RVocResult};
+use crate::{
+    error::{RVocError, RVocResult, UserError},
+    SecBytes,
+};
 use chrono::Duration;
-use secstr::SecStr;
+use secstr::SecUtf8;
 
 /// The configuration of the application.
 #[derive(Debug, Clone)]
 pub struct Configuration {
     /// The url to access postgres.
-    pub postgres_url: SecStr,
+    pub postgres_url: SecUtf8,
 
     /// The url to send opentelemetry to.
     pub opentelemetry_url: Option<String>,
@@ -25,6 +28,12 @@ pub struct Configuration {
     /// The address to listen for API requests.
     pub api_listen_address: SocketAddr,
 
+    /// The minimum length of a username.
+    pub minimum_username_length: usize,
+
+    /// The maximum length of a username.
+    pub maximum_username_length: usize,
+
     /// The minimum length of a password.
     /// See the [OWASP authentication cheat sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html#implement-proper-password-strength-controls)
     /// for how to set this if you want to set it manually.
@@ -36,7 +45,7 @@ pub struct Configuration {
     pub maximum_password_length: usize,
 
     /// An additional salt that is shared between all passwords, but not stored in the database.
-    pub password_pepper: SecStr,
+    pub password_pepper: SecBytes,
 
     /// The minimum memory parameter of the Argon2id password hash function.
     /// See the [OWASP password storage cheat sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#argon2id)
@@ -92,6 +101,14 @@ impl Configuration {
             api_listen_address: read_env_var_with_default_as_type(
                 "API_LISTEN_ADDRESS",
                 SocketAddr::from(([0, 0, 0, 0], 8093)),
+            )?,
+            minimum_username_length: read_env_var_with_default_as_type(
+                "MINIMUM_USERNAME_LENGTH",
+                3usize,
+            )?,
+            maximum_username_length: read_env_var_with_default_as_type(
+                "MAXIMUM_USERNAME_LENGTH",
+                50usize,
             )?,
             minimum_password_length: read_env_var_with_default_as_type(
                 "MINIMUM_PASSWORD_LENGTH",
@@ -168,6 +185,35 @@ impl Configuration {
             .map_err(|error| RVocError::PasswordArgon2IdParameters {
                 source: Box::new(error),
             })
+    }
+
+    pub fn verify_username_length(&self, username: &str) -> RVocResult<()> {
+        if username.len() < self.minimum_username_length
+            || username.len() > self.maximum_username_length
+        {
+            Err(UserError::UsernameLength {
+                actual: username.len(),
+                minimum: self.minimum_username_length,
+                maximum: self.maximum_username_length,
+            })?
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn verify_password_length(&self, password: &SecBytes) -> RVocResult<()> {
+        let unsecure_password = password.unsecure();
+        if unsecure_password.len() < self.minimum_password_length
+            || unsecure_password.len() > self.maximum_password_length
+        {
+            Err(UserError::UsernameLength {
+                actual: unsecure_password.len(),
+                minimum: self.minimum_password_length,
+                maximum: self.maximum_password_length,
+            })?
+        } else {
+            Ok(())
+        }
     }
 }
 

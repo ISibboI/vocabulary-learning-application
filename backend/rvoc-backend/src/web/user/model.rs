@@ -1,11 +1,19 @@
-use super::hashed_password::HashedPassword;
+use diesel::prelude::Insertable;
 
+use super::password_hash::PasswordHash;
+
+#[derive(Insertable)]
+#[diesel(table_name = crate::database::schema::users)]
+#[diesel(primary_key(name))]
+#[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct User {
-    name: Username,
-    password: HashedPassword,
+    #[diesel(serialize_as = String)]
+    pub name: Username,
+    #[diesel(serialize_as = String)]
+    pub password_hash: PasswordHash,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Username {
     name: String,
 }
@@ -19,5 +27,11 @@ impl Username {
 impl AsRef<str> for Username {
     fn as_ref(&self) -> &str {
         &self.name
+    }
+}
+
+impl From<Username> for String {
+    fn from(value: Username) -> Self {
+        value.name
     }
 }

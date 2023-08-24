@@ -1,4 +1,4 @@
-use std::{convert::Infallible, fmt::Display};
+use std::{convert::Infallible, fmt::Display, sync::Arc};
 
 use axum::{
     error_handling::HandleErrorLayer,
@@ -55,7 +55,8 @@ pub async fn run_web_api(
             database_connection_pool.clone(),
             configuration,
         )))
-        .layer(Extension(database_connection_pool));
+        .layer(Extension(database_connection_pool))
+        .layer(Extension(Arc::new(configuration.clone())));
 
     debug!(
         "Listening for API requests on {}",
@@ -79,9 +80,13 @@ async fn hello_world() -> &'static str {
 
 impl IntoResponse for RVocError {
     fn into_response(self) -> axum::response::Response {
-        error!("Web API error: {self}");
+        if let RVocError::UserError(user_error) = self {
+            user_error.to_string().into_response()
+        } else {
+            error!("Web API error: {self}");
 
-        StatusCode::INTERNAL_SERVER_ERROR.into_response()
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        }
     }
 }
 
@@ -120,3 +125,6 @@ async fn shutdown_signal() {
         _ = sigterm => info!("Received SIGTERM, shutting down"),
     }
 }
+
+type WebConfiguration = Extension<Arc<Configuration>>;
+type WebDatabaseConnectionPool = Extension<RVocAsyncDatabaseConnectionPool>;

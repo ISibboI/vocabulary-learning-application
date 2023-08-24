@@ -8,6 +8,7 @@ use crate::{configuration::Configuration, error::RVocError};
 use clap::Parser;
 use database::create_async_database_connection_pool;
 use database::migrations::has_missing_migrations;
+use secstr::SecVec;
 use tracing::{debug, info, instrument, Level};
 use tracing_subscriber::filter::FilterFn;
 use tracing_subscriber::Layer;
@@ -19,6 +20,8 @@ mod error;
 mod job_queue;
 mod update_wiktionary;
 mod web;
+
+type SecBytes = SecVec<u8>;
 
 /// Decide how to run the application.
 /// This should only be used internally for code that does not support async,

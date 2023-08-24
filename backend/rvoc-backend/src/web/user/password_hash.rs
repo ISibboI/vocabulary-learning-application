@@ -1,10 +1,10 @@
 use argon2::Argon2;
 use argon2::PasswordHasher;
-use password_hash::PasswordHash;
 use password_hash::PasswordVerifier;
 use password_hash::{rand_core::OsRng, SaltString};
-use secstr::SecStr;
+use secstr::SecUtf8;
 
+use crate::SecBytes;
 use crate::{
     configuration::Configuration,
     error::{RVocError, RVocResult},
@@ -14,12 +14,17 @@ static HASH_ALGORITHM: argon2::Algorithm = argon2::Algorithm::Argon2id;
 static HASH_ALGORITHM_VERSION: argon2::Version = argon2::Version::V0x13;
 
 #[derive(Debug)]
-pub struct HashedPassword {
-    argon_hash: SecStr,
+pub struct PasswordHash {
+    argon_hash: SecUtf8,
 }
 
-impl HashedPassword {
-    pub fn new(plaintext_password: SecStr, configuration: &Configuration) -> RVocResult<Self> {
+impl PasswordHash {
+    pub fn new(
+        plaintext_password: SecBytes,
+        configuration: impl AsRef<Configuration>,
+    ) -> RVocResult<Self> {
+        let configuration = configuration.as_ref();
+
         // the password length should be checked at the point where we have the password as string.
         let plaintext_password_length = plaintext_password.unsecure().len();
         assert!(
@@ -54,22 +59,17 @@ impl HashedPassword {
 
     pub fn verify(
         &mut self,
-        plaintext_password: SecStr,
-        configuration: &Configuration,
+        plaintext_password: SecBytes,
+        configuration: impl AsRef<Configuration>,
     ) -> RVocResult<bool> {
-        let parsed_hash =
-            PasswordHash::new(std::str::from_utf8(self.argon_hash.unsecure()).map_err(
-                |error| RVocError::PasswordArgon2IdVerify {
-                    source: Box::new(error),
-                },
-            )?)
+        let parsed_hash = argon2::password_hash::PasswordHash::new(self.argon_hash.unsecure())
             .map_err(|error| RVocError::PasswordArgon2IdVerify {
                 source: Box::new(error),
             })?;
 
         match Argon2::default().verify_password(plaintext_password.unsecure(), &parsed_hash) {
             Ok(()) => {
-                if self.did_parameters_change(&parsed_hash, configuration)? {
+                if self.did_parameters_change(&parsed_hash, &configuration)? {
                     *self = Self::new(plaintext_password, configuration)?;
                 }
                 Ok(true)
@@ -84,8 +84,8 @@ impl HashedPassword {
     /// Check if the password hashing parameters are different from the ones used for this hash.
     fn did_parameters_change(
         &self,
-        parsed_hash: &PasswordHash<'_>,
-        configuration: &Configuration,
+        parsed_hash: &argon2::password_hash::PasswordHash<'_>,
+        configuration: impl AsRef<Configuration>,
     ) -> RVocResult<bool> {
         let algorithm_identifier = parsed_hash.algorithm;
         let algorithm_version = parsed_hash.version;
@@ -97,6 +97,12 @@ impl HashedPassword {
 
         Ok(algorithm_identifier != HASH_ALGORITHM.ident()
             || algorithm_version != Some(HASH_ALGORITHM_VERSION.into())
-            || algorithm_parameters != configuration.build_argon2_parameters()?)
+            || algorithm_parameters != configuration.as_ref().build_argon2_parameters()?)
+    }
+}
+
+impl From<PasswordHash> for String {
+    fn from(value: PasswordHash) -> Self {
+        value.argon_hash.into_unsecure()
     }
 }
