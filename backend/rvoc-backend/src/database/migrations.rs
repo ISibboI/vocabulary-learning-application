@@ -6,8 +6,7 @@ use crate::{
     error::{RVocError, RVocResult},
 };
 
-const MIGRATIONS: diesel_migrations::EmbeddedMigrations =
-    diesel_migrations::embed_migrations!("migrations/");
+const MIGRATIONS: diesel_migrations::EmbeddedMigrations = diesel_migrations::embed_migrations!();
 
 /// Synchronously check if there are missing database migrations.
 pub fn has_missing_migrations(configuration: &Configuration) -> RVocResult<bool> {
