@@ -27,6 +27,7 @@
           pkgs = import nixpkgs {
             inherit system overlays;
           };
+          inherit (pkgs) lib;
           rustToolchain = pkgs.pkgsBuildHost.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
           craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
           src = lib.cleanSourceWith {
