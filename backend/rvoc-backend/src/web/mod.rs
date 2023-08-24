@@ -1,6 +1,12 @@
 use std::{convert::Infallible, fmt::Display};
 
-use axum::{error_handling::HandleErrorLayer, http::StatusCode, routing::get, Extension, Router};
+use axum::{
+    error_handling::HandleErrorLayer,
+    http::StatusCode,
+    response::IntoResponse,
+    routing::{get, post},
+    Extension, Router,
+};
 use tower::ServiceBuilder;
 use tracing::{debug, error, info, instrument};
 use typed_session_axum::{SessionLayer, SessionLayerError};
@@ -9,7 +15,10 @@ use crate::{
     configuration::Configuration,
     database::RVocAsyncDatabaseConnectionPool,
     error::{RVocError, RVocResult},
-    web::session::{RVocSessionData, RVocSessionStoreConnector},
+    web::{
+        session::{RVocSessionData, RVocSessionStoreConnector},
+        user::create_account,
+    },
 };
 
 mod session;
@@ -34,6 +43,7 @@ pub async fn run_web_api(
 
     let router = Router::new()
         .route("/", get(hello_world))
+        .route("/accounts/create", post(create_account))
         .layer(
             ServiceBuilder::new()
                 .layer(HandleErrorLayer::new(
@@ -42,9 +52,10 @@ pub async fn run_web_api(
                 .layer(SessionLayer::<RVocSessionData, RVocSessionStoreConnector>::new()),
         )
         .layer(Extension(RVocSessionStoreConnector::new(
-            database_connection_pool,
+            database_connection_pool.clone(),
             configuration,
-        )));
+        )))
+        .layer(Extension(database_connection_pool));
 
     debug!(
         "Listening for API requests on {}",
@@ -64,6 +75,14 @@ pub async fn run_web_api(
 
 async fn hello_world() -> &'static str {
     "Hello World!"
+}
+
+impl IntoResponse for RVocError {
+    fn into_response(self) -> axum::response::Response {
+        error!("Web API error: {self}");
+
+        StatusCode::INTERNAL_SERVER_ERROR.into_response()
+    }
 }
 
 async fn shutdown_signal() {

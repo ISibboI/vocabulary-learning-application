@@ -12,7 +12,7 @@ use crate::{
     error::{BoxDynError, RVocError},
 };
 
-use super::user::Username;
+use super::user::model::Username;
 
 #[derive(Clone)]
 pub struct RVocSessionStoreConnector {

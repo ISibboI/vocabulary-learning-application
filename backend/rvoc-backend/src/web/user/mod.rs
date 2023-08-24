@@ -1,25 +1,8 @@
-use self::hashed_password::HashedPassword;
+use crate::error::RVocResult;
 
 pub mod hashed_password;
+pub mod model;
 
-pub struct User {
-    name: Username,
-    password: HashedPassword,
-}
-
-#[derive(Debug)]
-pub struct Username {
-    name: String,
-}
-
-impl Username {
-    pub fn new(name: String) -> Self {
-        Self { name }
-    }
-}
-
-impl AsRef<str> for Username {
-    fn as_ref(&self) -> &str {
-        &self.name
-    }
+pub async fn create_account() -> RVocResult<()> {
+    Ok(())
 }
