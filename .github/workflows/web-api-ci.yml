@@ -11,6 +11,9 @@ on:
       - '**/rust-toolchain.toml'
       # Run on changed source files
       - 'backend/rvoc-backend/src/**'
+      # Run on changed flake
+      - '/flake.nix'
+      - '/flake.lock'
     branches: 
       - main
       # We are creating this workflow on this branch, hence we enable it here.
