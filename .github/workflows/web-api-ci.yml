@@ -29,18 +29,6 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v3
 
-    - name: Install nix
-      uses: cachix/install-nix-action@v22
-
-    - name: Cache /nix/store
-      uses: actions/cache@v3
-      with:
-        path: /nix/store
-        key: ${{ runner.os }}-${{ hashFiles('flake.*') }}
-
-    - name: Build debug binaries
-      run: nix build .#debugBinary .#integrationTestsBinary
-
     # adapted from https://github.com/diesel-rs/diesel/blob/1d66cdfb8323fc09612a08dca10752b47238181a/.github/workflows/ci.yml
     - name: Install postgres (Linux)
       run: |
@@ -49,11 +37,23 @@ jobs:
         echo "host    all             all             127.0.0.1/32            md5" > sudo tee -a /etc/postgresql/10/main/pg_hba.conf
         sudo service postgresql restart && sleep 3
         sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
-        sudo -u postgres psql -c "CREATE DATABASE rvoc; GRANT ALL PRIVILEGES ON rvoc TO postgres";
+        sudo -u postgres createdb rvoc
         sudo service postgresql restart && sleep 3
         echo "PG_DATABASE_URL=postgres://postgres:postgres@localhost/" >> $GITHUB_ENV
         echo "PG_EXAMPLE_DATABASE_URL=postgres://postgres:postgres@localhost/diesel_example" >> $GITHUB_ENV
         echo "POSTGRES_RVOC_URL=postgres://postgres:postgres@localhost/rvoc" >> $GITHUB_ENV
+
+    - name: Install nix
+      uses: cachix/install-nix-action@v22
+
+    - name: Cache /nix/store
+      uses: actions/cache@v3
+      with:
+        path: /nix/store
+        key: ${{ runner.os }}-${{ hashFiles('flake.*') }}-${{ hashFiles('.github/workflows/web-api-ci.yml') }}
+
+    - name: Build debug binaries
+      run: nix build .#debugBinary .#integrationTestsBinary
 
     - name: Run integration tests
       uses: BerniWittmann/background-server-action@v1
