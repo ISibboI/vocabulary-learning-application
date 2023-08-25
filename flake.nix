@@ -47,20 +47,25 @@
           };
           integrationTestsArtifacts = craneLib.buildDepsOnly(commonArgs // {
             cargoExtraArgs = "--profile dev --bin integration-tests";
+            doCheck = false;
           });
           integrationTestsBinary = craneLib.buildPackage(commonArgs // {
-            inherit cargoDebugArtifacts;
+            inherit integrationTestsArtifacts;
             cargoExtraArgs = "--profile dev --bin integration-tests";
+            doCheck = false;
           });
           cargoDebugArtifacts = craneLib.buildDepsOnly(commonArgs // {
             cargoExtraArgs = "--profile dev --bin rvoc-backend";
+            doCheck = false;
           });
           debugBinary = craneLib.buildPackage(commonArgs // {
             inherit cargoDebugArtifacts;
             cargoExtraArgs = "--profile dev --bin rvoc-backend";
+            doCheck = false;
           });
           cargoArtifacts = craneLib.buildDepsOnly(commonArgs // {
             cargoExtraArgs = "--profile release --bin rvoc-backend";
+            doCheck = false;
           });
           binary = craneLib.buildPackage(commonArgs // {
             inherit cargoDebugArtifacts;
