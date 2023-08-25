@@ -65,4 +65,4 @@ jobs:
       uses: BerniWittmann/background-server-action@v1
       with:
         command: integrationTestsBinary/bin/integration-tests
-        start: debugBinary/bin/rvoc-backend
+        start: debugBinary/bin/rvoc-backend web

@@ -997,6 +997,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "integration-tests"
+version = "0.0.1"
+dependencies = [
+ "log",
+ "reqwest",
+ "rvoc-backend",
+ "serde",
+ "serde_json",
+ "simplelog",
+ "tokio",
+]
+
+[[package]]
 name = "ipnet"
 version = "2.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1740,19 +1753,6 @@ dependencies = [
  "typed-session",
  "typed-session-axum",
  "wiktionary-dump-parser",
-]
-
-[[package]]
-name = "rvoc-backend-integration-tests"
-version = "0.0.1"
-dependencies = [
- "log",
- "reqwest",
- "rvoc-backend",
- "serde",
- "serde_json",
- "simplelog",
- "tokio",
 ]
 
 [[package]]
