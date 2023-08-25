@@ -45,15 +45,27 @@
           commonArgs = {
             inherit src buildInputs nativeBuildInputs;
           };
+          integrationTestsArtifacts = craneLib.buildDepsOnly(commonArgs // {
+            cargoBuildCommand = "cargo build --profile dev --bin rvoc-backend-integration-tests";
+          });
+          integrationTestsBinary = craneLib.buildPackage(commonArgs // {
+            inherit cargoDebugArtifacts;
+            cargoBuildCommand = "cargo build --profile dev --bin rvoc-backend-integration-tests";
+          });
           cargoDebugArtifacts = craneLib.buildDepsOnly(commonArgs // {
-            cargoBuildCommand = "cargo build --profile dev";
+            cargoBuildCommand = "cargo build --profile dev --bin rvoc-backend";
           });
           debugBinary = craneLib.buildPackage(commonArgs // {
             inherit cargoDebugArtifacts;
-            cargoBuildCommand = "cargo build --profile dev";
+            cargoBuildCommand = "cargo build --profile dev --bin rvoc-backend";
           });
-          cargoArtifacts = craneLib.buildDepsOnly commonArgs;
-          binary = craneLib.buildPackage(commonArgs // {inherit cargoArtifacts;});
+          cargoArtifacts = craneLib.buildDepsOnly(commonArgs // {
+            cargoBuildCommand = "cargo build --profile release --bin rvoc-backend";
+          });
+          binary = craneLib.buildPackage(commonArgs // {
+            inherit cargoDebugArtifacts;
+            cargoBuildCommand = "cargo build --profile release --bin rvoc-backend";
+          });
           dockerImage = pkgs.dockerTools.streamLayeredImage {
             name = "rvoc-backend";
             tag = "latest";
@@ -74,7 +86,7 @@
         with pkgs;
         {
           packages = {
-            inherit binary debugBinary dockerImage debugDockerImage;
+            inherit binary debugBinary integrationTestsBinary dockerImage debugDockerImage;
             default = binary;
           };
           devShells.default = mkShell {
