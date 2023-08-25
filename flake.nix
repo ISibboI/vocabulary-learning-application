@@ -78,7 +78,7 @@
             pname = "rvoc-backend";
           });
           binary = craneLib.buildPackage(commonArgs // {
-            inherit cargoDebugArtifacts;
+            inherit cargoArtifacts;
             cargoBuildCommand = "cargo build --profile release";
             cargoExtraArgs = "--bin rvoc-backend";
             pname = "rvoc-backend";
