@@ -46,25 +46,25 @@
             inherit src buildInputs nativeBuildInputs;
           };
           integrationTestsArtifacts = craneLib.buildDepsOnly(commonArgs // {
-            cargoBuildCommand = "cargo build --profile dev --bin integration-tests";
+            cargoExtraArgs = "--profile dev --bin integration-tests";
           });
           integrationTestsBinary = craneLib.buildPackage(commonArgs // {
             inherit cargoDebugArtifacts;
-            cargoBuildCommand = "cargo build --profile dev --bin integration-tests";
+            cargoExtraArgs = "--profile dev --bin integration-tests";
           });
           cargoDebugArtifacts = craneLib.buildDepsOnly(commonArgs // {
-            cargoBuildCommand = "cargo build --profile dev --bin rvoc-backend";
+            cargoExtraArgs = "--profile dev --bin rvoc-backend";
           });
           debugBinary = craneLib.buildPackage(commonArgs // {
             inherit cargoDebugArtifacts;
-            cargoBuildCommand = "cargo build --profile dev --bin rvoc-backend";
+            cargoExtraArgs = "--profile dev --bin rvoc-backend";
           });
           cargoArtifacts = craneLib.buildDepsOnly(commonArgs // {
-            cargoBuildCommand = "cargo build --profile release --bin rvoc-backend";
+            cargoExtraArgs = "--profile release --bin rvoc-backend";
           });
           binary = craneLib.buildPackage(commonArgs // {
             inherit cargoDebugArtifacts;
-            cargoBuildCommand = "cargo build --profile release --bin rvoc-backend";
+            cargoExtraArgs = "--profile release --bin rvoc-backend";
           });
           dockerImage = pkgs.dockerTools.streamLayeredImage {
             name = "rvoc-backend";
