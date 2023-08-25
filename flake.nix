@@ -55,6 +55,7 @@
             cargoBuildCommand = "cargo build --profile dev";
             cargoExtraArgs = "--bin integration-tests";
             doCheck = false;
+            pname = "integration-tests";
           });
           cargoDebugArtifacts = craneLib.buildDepsOnly(commonArgs // {
             cargoBuildCommand = "cargo build --profile dev";
@@ -66,6 +67,7 @@
             cargoBuildCommand = "cargo build --profile dev";
             cargoExtraArgs = "--bin rvoc-backend";
             doCheck = false;
+            pname = "rvoc-backend";
           });
           cargoArtifacts = craneLib.buildDepsOnly(commonArgs // {
             cargoBuildCommand = "cargo build --profile release";
@@ -76,6 +78,7 @@
             inherit cargoDebugArtifacts;
             cargoBuildCommand = "cargo build --profile release";
             cargoExtraArgs = "--bin rvoc-backend";
+            pname = "rvoc-backend";
           });
           dockerImage = pkgs.dockerTools.streamLayeredImage {
             name = "rvoc-backend";
