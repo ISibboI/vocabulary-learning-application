@@ -52,11 +52,14 @@ jobs:
         path: /nix/store
         key: ${{ runner.os }}-${{ hashFiles('flake.*') }}-${{ hashFiles('.github/workflows/web-api-ci.yml') }}
 
-    - name: Build debug binaries
-      run: nix build .#debugBinary .#integrationTestsBinary
+    - name: Build debug binary
+      run: nix build --out-link debugBinary .#debugBinary
+    
+    - name: Build integration-tests binary
+      run: nix build --out-link integrationTestsBinary .#integrationTestsBinary
 
     - name: Run integration tests
       uses: BerniWittmann/background-server-action@v1
       with:
-        command: result/bin/integrationTestsBinary
-        start: nresult/bin/debugBinary
+        command: integrationTestsBinary/bin/integration-tests
+        start: debugBinary/bin/rvoc-backend
