@@ -1,5 +1,6 @@
 use api_commands::CreateAccount;
 use log::info;
+use reqwest::StatusCode;
 use simplelog::TermLogger;
 
 use crate::util::HttpClient;
@@ -24,7 +25,7 @@ fn initialise_logging() {
 #[tokio::main]
 async fn main() {
     initialise_logging();
-    let client = HttpClient::new();
+    let client = HttpClient::new().await;
 
     test_user_account_creation(&client).await;
 
@@ -41,4 +42,6 @@ async fn test_user_account_creation(client: &HttpClient) {
             },
         )
         .await;
+
+    assert_eq!(response.status(), StatusCode::OK);
 }
