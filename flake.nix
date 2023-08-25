@@ -59,7 +59,7 @@
             tag = "latest";
             contents = [binary pkgs.cacert];
             config = {
-              Cmd = ["${bin}/bin/rvoc-backend"];
+              Cmd = ["${binary}/bin/rvoc-backend"];
             };
           };
           debugDockerImage = pkgs.dockerTools.streamLayeredImage {
@@ -67,7 +67,7 @@
             tag = "latest";
             contents = [debugBinary pkgs.cacert];
             config = {
-              Cmd = ["${debugBin}/bin/rvoc-backend"];
+              Cmd = ["${debugBinary}/bin/rvoc-backend"];
             };
           };
         in
