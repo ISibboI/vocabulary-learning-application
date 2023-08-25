@@ -46,11 +46,11 @@
             inherit src buildInputs nativeBuildInputs;
           };
           integrationTestsArtifacts = craneLib.buildDepsOnly(commonArgs // {
-            cargoBuildCommand = "cargo build --profile dev --bin rvoc-backend-integration-tests";
+            cargoBuildCommand = "cargo build --profile dev --bin integration-tests";
           });
           integrationTestsBinary = craneLib.buildPackage(commonArgs // {
             inherit cargoDebugArtifacts;
-            cargoBuildCommand = "cargo build --profile dev --bin rvoc-backend-integration-tests";
+            cargoBuildCommand = "cargo build --profile dev --bin integration-tests";
           });
           cargoDebugArtifacts = craneLib.buildDepsOnly(commonArgs // {
             cargoBuildCommand = "cargo build --profile dev --bin rvoc-backend";
