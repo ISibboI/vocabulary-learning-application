@@ -11,6 +11,10 @@ publish = false
 name = "rvoc-backend"
 path = "src/main.rs"
 
+[lib]
+name = "api_commands"
+path = "src/lib_api_commands.rs"
+
 [dependencies]
 # runtime
 tokio = {version = "1.29.1", features = []}

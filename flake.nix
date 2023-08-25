@@ -38,7 +38,7 @@
               # Default filter from crane (allow .rs files)
               (craneLib.filterCargoSources path type)
             ;
-        };
+          };
           nativeBuildInputs = with pkgs; [rustToolchain pkg-config];
           buildInputs = with pkgs; [rustToolchain openssl postgresql_15.lib];
           developmentTools = with pkgs; [(diesel-cli.override {sqliteSupport = false; mysqlSupport = false;}) postgresql];
@@ -48,16 +48,16 @@
           cargoDebugArtifacts = craneLib.buildDepsOnly(commonArgs // {
             cargoBuildCommand = "cargo build --profile dev";
           });
-          debugBin = craneLib.buildPackage(commonArgs // {
+          debugBinary = craneLib.buildPackage(commonArgs // {
             inherit cargoDebugArtifacts;
             cargoBuildCommand = "cargo build --profile dev";
           });
           cargoArtifacts = craneLib.buildDepsOnly commonArgs;
-          bin = craneLib.buildPackage(commonArgs // {inherit cargoArtifacts;});
+          binary = craneLib.buildPackage(commonArgs // {inherit cargoArtifacts;});
           dockerImage = pkgs.dockerTools.streamLayeredImage {
             name = "rvoc-backend";
             tag = "latest";
-            contents = [bin pkgs.cacert];
+            contents = [binary pkgs.cacert];
             config = {
               Cmd = ["${bin}/bin/rvoc-backend"];
             };
@@ -65,7 +65,7 @@
           debugDockerImage = pkgs.dockerTools.streamLayeredImage {
             name = "rvoc-backend";
             tag = "latest";
-            contents = [debugBin pkgs.cacert];
+            contents = [debugBinary pkgs.cacert];
             config = {
               Cmd = ["${debugBin}/bin/rvoc-backend"];
             };
@@ -74,11 +74,11 @@
         with pkgs;
         {
           packages = {
-            inherit bin debugBin dockerImage debugDockerImage;
-            default = bin;
+            inherit binary debugBinary dockerImage debugDockerImage;
+            default = binary;
           };
           devShells.default = mkShell {
-            inputsFrom = [bin];
+            inputsFrom = [binary];
             buildInputs = with pkgs; [dive wget];
             packages = developmentTools;
             shellHook = ''

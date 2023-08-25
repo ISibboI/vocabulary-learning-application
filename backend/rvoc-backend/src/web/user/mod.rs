@@ -1,9 +1,8 @@
 use axum::{Extension, Json};
-use serde::Deserialize;
 
 use crate::{
     error::{RVocError, RVocResult},
-    SecBytes,
+    lib_api_commands::CreateAccount,
 };
 
 use self::{
@@ -15,12 +14,6 @@ use super::{WebConfiguration, WebDatabaseConnectionPool};
 
 pub mod model;
 pub mod password_hash;
-
-#[derive(Deserialize)]
-pub struct CreateAccount {
-    name: String,
-    password: SecBytes,
-}
 
 pub async fn create_account(
     Extension(database_connection_pool): WebDatabaseConnectionPool,

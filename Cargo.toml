@@ -1,5 +1,5 @@
 [workspace]
-members = ["backend/rvoc-backend"]
+members = ["backend/rvoc-backend", "backend/integration-tests"]
 
 [workspace.package]
 name = "vocabulary-learning-application"
