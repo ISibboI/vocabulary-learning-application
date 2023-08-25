@@ -7,6 +7,10 @@ publish.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[[bin]]
+name = "integration-tests"
+path = "src/main.rs"
+
 [dependencies]
 rvoc-backend = { path = "../rvoc-backend" }
 
