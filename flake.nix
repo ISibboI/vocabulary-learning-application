@@ -49,6 +49,7 @@
             cargoBuildCommand = "cargo build --profile dev";
             cargoExtraArgs = "--bin integration-tests";
             doCheck = false;
+            pname = "integration-tests";
           });
           integrationTestsBinary = craneLib.buildPackage(commonArgs // {
             inherit integrationTestsArtifacts;
@@ -61,6 +62,7 @@
             cargoBuildCommand = "cargo build --profile dev";
             cargoExtraArgs = "--bin rvoc-backend";
             doCheck = false;
+            pname = "rvoc-backend";
           });
           debugBinary = craneLib.buildPackage(commonArgs // {
             inherit cargoDebugArtifacts;
@@ -73,6 +75,7 @@
             cargoBuildCommand = "cargo build --profile release";
             cargoExtraArgs = "--bin rvoc-backend";
             doCheck = false;
+            pname = "rvoc-backend";
           });
           binary = craneLib.buildPackage(commonArgs // {
             inherit cargoDebugArtifacts;
