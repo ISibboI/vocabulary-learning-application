@@ -39,5 +39,9 @@ async fn test_user_account_creation(client: &HttpClient) {
         )
         .await;
 
-    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.status(),
+        StatusCode::OK,
+        "unexpected response: {response:?}"
+    );
 }
