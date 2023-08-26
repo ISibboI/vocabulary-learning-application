@@ -14,7 +14,7 @@ impl HttpClient {
         let client = Client::default();
 
         for _ in 0..10 {
-            match client.get(format!("{BASE_URL}")).send().await {
+            match client.get(BASE_URL).send().await {
                 Ok(_) => break,
                 Err(error) => {
                     if !error.is_connect() {
@@ -34,7 +34,7 @@ impl HttpClient {
     pub async fn post<T: Serialize>(&self, path: &str, body: T) -> Response {
         self.client
             .post(format!("{BASE_URL}{path}"))
-            .body(serde_json::to_string_pretty(&body).unwrap())
+            .json(&body)
             .send()
             .await
             .unwrap()

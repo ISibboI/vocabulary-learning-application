@@ -5,10 +5,6 @@ use simplelog::TermLogger;
 
 use crate::util::HttpClient;
 
-fn url(suffix: &str) -> String {
-    format!("http://localhost:8093{suffix}")
-}
-
 mod util;
 
 fn initialise_logging() {
