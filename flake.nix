@@ -46,40 +46,40 @@
             inherit src buildInputs nativeBuildInputs;
           };
           integrationTestsArtifacts = craneLib.buildDepsOnly(commonArgs // {
-            cargoBuildCommand = "cargo build --profile dev";
+            cargoBuildCommand = "cargo build --locked --profile dev";
             cargoExtraArgs = "--bin integration-tests";
             doCheck = false;
             pname = "integration-tests";
           });
           integrationTestsBinary = craneLib.buildPackage(commonArgs // {
             inherit integrationTestsArtifacts;
-            cargoBuildCommand = "cargo build --profile dev";
+            cargoBuildCommand = "cargo build --locked --profile dev";
             cargoExtraArgs = "--bin integration-tests";
             doCheck = false;
             pname = "integration-tests";
           });
           cargoDebugArtifacts = craneLib.buildDepsOnly(commonArgs // {
-            cargoBuildCommand = "cargo build --profile dev";
+            cargoBuildCommand = "cargo build --locked --profile dev";
             cargoExtraArgs = "--bin rvoc-backend";
             doCheck = false;
             pname = "rvoc-backend";
           });
           debugBinary = craneLib.buildPackage(commonArgs // {
             inherit cargoDebugArtifacts;
-            cargoBuildCommand = "cargo build --profile dev";
+            cargoBuildCommand = "cargo buil --locked --profile dev";
             cargoExtraArgs = "--bin rvoc-backend";
             doCheck = false;
             pname = "rvoc-backend";
           });
           cargoArtifacts = craneLib.buildDepsOnly(commonArgs // {
-            cargoBuildCommand = "cargo build --profile release";
+            cargoBuildCommand = "cargo build --locked --profile release";
             cargoExtraArgs = "--bin rvoc-backend";
             doCheck = false;
             pname = "rvoc-backend";
           });
           binary = craneLib.buildPackage(commonArgs // {
             inherit cargoArtifacts;
-            cargoBuildCommand = "cargo build --profile release";
+            cargoBuildCommand = "cargo build --locked --profile release";
             cargoExtraArgs = "--bin rvoc-backend";
             pname = "rvoc-backend";
           });
