@@ -61,6 +61,9 @@ jobs:
     - name: Set up environment variables
       run: echo "PASSWORD_PEPPER=test-test-test-test" >> $GITHUB_ENV
 
+    - name: Run database migrations
+      run: debugBinary/bin/rvoc-backend apply-migrations
+
     - name: Run integration tests
       uses: BerniWittmann/background-server-action@v1
       with:
