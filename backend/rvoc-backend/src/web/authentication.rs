@@ -6,7 +6,7 @@ use axum::{
     Extension, Json,
 };
 use diesel::QueryDsl;
-use tracing::instrument;
+use tracing::{info, instrument};
 use typed_session_axum::{SessionHandle, WritableSession};
 
 use crate::{
@@ -65,6 +65,7 @@ pub async fn login(
                     })? {
                     password_hash
                 } else {
+                    info!("User not found: {:?}", login.name);
                     return Err(UserError::InvalidUsernamePassword.into());
                 };
 
@@ -74,6 +75,7 @@ pub async fn login(
 
                 if !verify_result.matches {
                     *session.data_mut() = RVocSessionData::Anonymous;
+                    info!("Wrong password for user: {:?}", login.name);
                     return Err(UserError::InvalidUsernamePassword.into());
                 }
 
