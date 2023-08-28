@@ -46,23 +46,10 @@ pub async fn create_account(
                     }
                     Err(diesel::result::Error::DatabaseError(
                         diesel::result::DatabaseErrorKind::UniqueViolation,
-                        database_error_information,
-                    )) => {
-                        if database_error_information.table_name() == Some("users")
-                            && database_error_information.column_name() == Some("name")
-                        {
-                            Err(RVocError::UserError(
-                                crate::error::UserError::UsernameExists { username },
-                            ))
-                        } else {
-                            Err(RVocError::CreateUser {
-                                source: Box::new(diesel::result::Error::DatabaseError(
-                                    diesel::result::DatabaseErrorKind::UniqueViolation,
-                                    database_error_information,
-                                )),
-                            })
-                        }
-                    }
+                        _,
+                    )) => Err(RVocError::UserError(
+                        crate::error::UserError::UsernameExists { username },
+                    )),
                     Err(error) => Err(RVocError::CreateUser {
                         source: Box::new(error),
                     }),

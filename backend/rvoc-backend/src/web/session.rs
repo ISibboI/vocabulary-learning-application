@@ -68,22 +68,8 @@ impl SessionStoreConnector<RVocSessionData> for RVocSessionStoreConnector {
                         .map_err(|error| match error {
                             diesel::result::Error::DatabaseError(
                                 diesel::result::DatabaseErrorKind::UniqueViolation,
-                                database_error_information,
-                            ) => {
-                                if database_error_information.table_name() == Some("sessions")
-                                    && database_error_information.column_name() == Some("id")
-                                {
-                                    TryInsertSessionError::SessionIdExists
-                                } else {
-                                    TryInsertSessionError::Error(
-                                        diesel::result::Error::DatabaseError(
-                                            diesel::result::DatabaseErrorKind::UniqueViolation,
-                                            database_error_information,
-                                        )
-                                        .into(),
-                                    )
-                                }
-                            }
+                                _,
+                            ) => TryInsertSessionError::SessionIdExists,
                             error => TryInsertSessionError::Error(error.into()),
                         })?;
 
@@ -182,22 +168,8 @@ impl SessionStoreConnector<RVocSessionData> for RVocSessionStoreConnector {
                         .map_err(|error| match error {
                             diesel::result::Error::DatabaseError(
                                 diesel::result::DatabaseErrorKind::UniqueViolation,
-                                database_error_information,
-                            ) => {
-                                if database_error_information.table_name() == Some("sessions")
-                                    && database_error_information.column_name() == Some("id")
-                                {
-                                    TryInsertSessionError::SessionIdExists
-                                } else {
-                                    TryInsertSessionError::Error(
-                                        diesel::result::Error::DatabaseError(
-                                            diesel::result::DatabaseErrorKind::UniqueViolation,
-                                            database_error_information,
-                                        )
-                                        .into(),
-                                    )
-                                }
-                            }
+                                _,
+                            ) => TryInsertSessionError::SessionIdExists,
                             error => TryInsertSessionError::Error(error.into()),
                         })?;
 
