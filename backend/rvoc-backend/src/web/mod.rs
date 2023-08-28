@@ -2,14 +2,15 @@ use std::{convert::Infallible, fmt::Display, sync::Arc};
 
 use axum::{
     error_handling::HandleErrorLayer,
-    http::StatusCode,
-    response::IntoResponse,
-    routing::{get, post},
+    http::{Request, StatusCode},
+    middleware::{self, Next},
+    response::{IntoResponse, Response},
+    routing::{delete, get, post},
     Extension, Router,
 };
 use tower::ServiceBuilder;
 use tracing::{debug, error, info, instrument};
-use typed_session_axum::{SessionLayer, SessionLayerError};
+use typed_session_axum::{ReadableSession, SessionLayer, SessionLayerError};
 
 use crate::{
     configuration::Configuration,
@@ -17,9 +18,11 @@ use crate::{
     error::{RVocError, RVocResult, UserError},
     web::{
         session::{RVocSessionData, RVocSessionStoreConnector},
-        user::create_account,
+        user::{create_account, delete_account},
     },
 };
+
+use self::user::model::Username;
 
 mod session;
 mod user;
@@ -42,6 +45,8 @@ pub async fn run_web_api(
     }
 
     let router = Router::new()
+        .route("/accounts/delete", delete(delete_account))
+        .layer(middleware::from_fn(ensure_logged_in))
         .route("/", get(hello_world))
         .route("/accounts/create", post(create_account))
         .layer(
@@ -78,6 +83,30 @@ async fn hello_world() -> &'static str {
     "Hello World!"
 }
 
+async fn ensure_logged_in<B>(mut request: Request<B>, next: Next<B>) -> Response {
+    let session: &ReadableSession<RVocSessionData> = request.extensions().get().unwrap();
+
+    match session.data() {
+        RVocSessionData::Anonymous => return StatusCode::UNAUTHORIZED.into_response(),
+        RVocSessionData::LoggedIn(username) => {
+            let username = username.clone();
+            request.extensions_mut().insert(LoggedInUser(username));
+        }
+    }
+
+    next.run(request).await
+}
+
+/// If this extension is found, it means that the request was made by the contained username.
+#[derive(Debug, Clone)]
+pub struct LoggedInUser(Username);
+
+impl From<LoggedInUser> for String {
+    fn from(value: LoggedInUser) -> Self {
+        value.0.into()
+    }
+}
+
 impl IntoResponse for RVocError {
     fn into_response(self) -> axum::response::Response {
         if let RVocError::UserError(user_error) = self {
@@ -102,6 +131,7 @@ impl UserError {
             UserError::PasswordLength { .. } => StatusCode::BAD_REQUEST,
             UserError::UsernameLength { .. } => StatusCode::BAD_REQUEST,
             UserError::UsernameExists { .. } => StatusCode::CONFLICT,
+            UserError::UsernameDoesNotExist { .. } => StatusCode::BAD_REQUEST,
         }
     }
 }

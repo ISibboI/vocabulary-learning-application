@@ -78,6 +78,9 @@ pub enum RVocError {
     #[error("error creating user: {source}")]
     CreateUser { source: BoxDynError },
 
+    #[error("error deleting user: {source}")]
+    DeleteUser { source: BoxDynError },
+
     #[error("error while inserting session to database: {source}")]
     InsertSession { source: BoxDynError },
 
@@ -127,6 +130,9 @@ pub enum UserError {
 
     #[error("the username already exists: {username}")]
     UsernameExists { username: String },
+
+    #[error("the username does not exist: {username}")]
+    UsernameDoesNotExist { username: String },
 }
 
 trait RequireSendAndSync: Send + Sync {}

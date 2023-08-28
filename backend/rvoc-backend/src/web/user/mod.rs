@@ -8,7 +8,7 @@ use self::{
     password_hash::PasswordHash,
 };
 
-use super::{WebConfiguration, WebDatabaseConnectionPool};
+use super::{LoggedInUser, WebConfiguration, WebDatabaseConnectionPool};
 
 pub mod model;
 pub mod password_hash;
@@ -62,6 +62,40 @@ pub async fn create_account(
                         }
                     }
                     Err(error) => Err(RVocError::CreateUser {
+                        source: Box::new(error),
+                    }),
+                }
+            })
+        })
+        .await
+}
+
+pub async fn delete_account(
+    Extension(username): Extension<LoggedInUser>,
+    Extension(database_connection_pool): WebDatabaseConnectionPool,
+) -> RVocResult<StatusCode> {
+    database_connection_pool
+        .execute_transaction(|database_connection| {
+            Box::pin(async {
+                use crate::database::schema::users::dsl::*;
+                use diesel::ExpressionMethods;
+                use diesel_async::RunQueryDsl;
+
+                match diesel::delete(users)
+                    .filter(name.eq(username.0.as_ref()))
+                    .execute(database_connection)
+                    .await
+                {
+                    Ok(0) => Err(RVocError::UserError(
+                        crate::error::UserError::UsernameDoesNotExist {
+                            username: username.into(),
+                        },
+                    )),
+                    Ok(1) => Ok(StatusCode::OK),
+                    Ok(affected_rows) => {
+                        unreachable!("deleted exactly one user, but affected {affected_rows} rows")
+                    }
+                    Err(error) => Err(RVocError::DeleteUser {
                         source: Box::new(error),
                     }),
                 }
