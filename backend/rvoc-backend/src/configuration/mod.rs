@@ -206,7 +206,7 @@ impl Configuration {
         if unsecure_password.len() < self.minimum_password_length
             || unsecure_password.len() > self.maximum_password_length
         {
-            Err(UserError::UsernameLength {
+            Err(UserError::PasswordLength {
                 actual: unsecure_password.len(),
                 minimum: self.minimum_password_length,
                 maximum: self.maximum_password_length,
