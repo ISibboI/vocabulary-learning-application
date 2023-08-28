@@ -39,10 +39,15 @@ async fn main() -> anyhow::Result<()> {
         spawn(test_too_long_password_login()),
     ];
 
-    let mut has_error = false;
+    let mut results = Vec::new();
     for task in tasks {
         let result = task.await;
         let Ok(result) = result else { error!("{result:?}"); continue; };
+        results.push(result);
+    }
+
+    let mut has_error = false;
+    for result in results {
         if result.is_err() {
             has_error = true;
             error!("{:?}", result);
