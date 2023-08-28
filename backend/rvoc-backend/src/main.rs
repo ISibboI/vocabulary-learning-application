@@ -51,9 +51,9 @@ fn setup_tracing_subscriber(configuration: &Configuration) -> RVocResult<()> {
         .with_span_list(true)
         .with_filter(FilterFn::new(|metadata| {
             if metadata.target().starts_with("tokio_util::") {
-                metadata.level() > &Level::TRACE
+                metadata.level() < &Level::TRACE
             } else if metadata.target().starts_with("hyper::") {
-                metadata.level() > &Level::DEBUG
+                metadata.level() < &Level::DEBUG
             } else {
                 true
             }
