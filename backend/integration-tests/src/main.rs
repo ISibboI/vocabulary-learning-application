@@ -38,6 +38,7 @@ async fn main() -> anyhow::Result<()> {
         spawn(test_wrong_username_login()),
         spawn(test_too_long_password_login()),
     ];
+    let test_amount = tasks.len();
 
     let mut results = Vec::new();
     for task in tasks {
@@ -46,18 +47,21 @@ async fn main() -> anyhow::Result<()> {
         results.push(result);
     }
 
-    let mut has_error = false;
+    let mut error_count = 0;
     for result in results {
         if result.is_err() {
-            has_error = true;
+            error_count += 1;
             error!("{:?}", result);
         } else {
             debug!("{:?}", result);
         }
     }
 
-    if has_error {
-        error!("Finished with errors");
+    if error_count > 0 {
+        error!(
+            "Finished with errors in {}/{} tests",
+            error_count, test_amount
+        );
         bail!("Finished with errors");
     } else {
         info!("Finished successfully");
