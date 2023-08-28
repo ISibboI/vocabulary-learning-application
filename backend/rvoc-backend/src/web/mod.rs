@@ -5,7 +5,7 @@ use axum::{
     http::StatusCode,
     middleware,
     response::IntoResponse,
-    routing::{delete, get, post},
+    routing::{delete, post},
     Extension, Router,
 };
 use tower::ServiceBuilder;
@@ -17,7 +17,7 @@ use crate::{
     database::RVocAsyncDatabaseConnectionPool,
     error::{RVocError, RVocResult, UserError},
     web::{
-        authentication::ensure_logged_in,
+        authentication::{ensure_logged_in, login, logout},
         session::{RVocSessionData, RVocSessionStoreConnector},
         user::{create_account, delete_account},
     },
@@ -46,8 +46,9 @@ pub async fn run_web_api(
 
     let router = Router::new()
         .route("/accounts/delete", delete(delete_account))
+        .route("/accounts/logout", post(logout))
         .layer(middleware::from_fn(ensure_logged_in))
-        .route("/", get(hello_world))
+        .route("/accounts/login", post(login))
         .route("/accounts/create", post(create_account))
         .layer(
             ServiceBuilder::new()
@@ -79,10 +80,6 @@ pub async fn run_web_api(
     Ok(())
 }
 
-async fn hello_world() -> &'static str {
-    "Hello World!"
-}
-
 impl IntoResponse for RVocError {
     fn into_response(self) -> axum::response::Response {
         if let RVocError::UserError(user_error) = self {
@@ -108,6 +105,7 @@ impl UserError {
             UserError::UsernameLength { .. } => StatusCode::BAD_REQUEST,
             UserError::UsernameExists { .. } => StatusCode::CONFLICT,
             UserError::UsernameDoesNotExist { .. } => StatusCode::BAD_REQUEST,
+            UserError::InvalidUsernamePassword => StatusCode::BAD_REQUEST,
         }
     }
 }

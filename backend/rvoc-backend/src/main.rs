@@ -95,7 +95,7 @@ fn setup_tracing_subscriber(configuration: &Configuration) -> RVocResult<()> {
 }
 
 #[tokio::main(flavor = "current_thread")]
-pub async fn main() -> RVocResult<()> {
+async fn main() -> RVocResult<()> {
     // Load configuration & CLI
     let configuration = Configuration::from_environment()?;
     let cli = Cli::parse();

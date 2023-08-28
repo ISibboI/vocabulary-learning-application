@@ -18,6 +18,15 @@ pub struct PasswordHash {
     argon_hash: SecUtf8,
 }
 
+#[must_use]
+pub struct VerifyPasswordResult {
+    /// True if the password matches the hash.
+    pub matches: bool,
+
+    /// True if the password hash was modified and needs to be written to the database.
+    pub modified: bool,
+}
+
 impl PasswordHash {
     pub fn new(
         plaintext_password: SecBytes,
@@ -61,7 +70,7 @@ impl PasswordHash {
         &mut self,
         plaintext_password: SecBytes,
         configuration: impl AsRef<Configuration>,
-    ) -> RVocResult<bool> {
+    ) -> RVocResult<VerifyPasswordResult> {
         let parsed_hash = argon2::password_hash::PasswordHash::new(self.argon_hash.unsecure())
             .map_err(|error| RVocError::PasswordArgon2IdVerify {
                 source: Box::new(error),
@@ -69,12 +78,21 @@ impl PasswordHash {
 
         match Argon2::default().verify_password(plaintext_password.unsecure(), &parsed_hash) {
             Ok(()) => {
-                if self.did_parameters_change(&parsed_hash, &configuration)? {
+                let modified = if self.did_parameters_change(&parsed_hash, &configuration)? {
                     *self = Self::new(plaintext_password, configuration)?;
-                }
-                Ok(true)
+                    true
+                } else {
+                    false
+                };
+                Ok(VerifyPasswordResult {
+                    matches: true,
+                    modified,
+                })
             }
-            Err(argon2::password_hash::Error::Password) => Ok(false),
+            Err(argon2::password_hash::Error::Password) => Ok(VerifyPasswordResult {
+                matches: false,
+                modified: false,
+            }),
             Err(error) => Err(RVocError::PasswordArgon2IdVerify {
                 source: Box::new(error),
             }),
@@ -104,5 +122,13 @@ impl PasswordHash {
 impl From<PasswordHash> for String {
     fn from(value: PasswordHash) -> Self {
         value.argon_hash.into_unsecure()
+    }
+}
+
+impl From<String> for PasswordHash {
+    fn from(value: String) -> Self {
+        Self {
+            argon_hash: value.into(),
+        }
     }
 }

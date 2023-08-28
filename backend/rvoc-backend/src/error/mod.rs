@@ -81,6 +81,9 @@ pub enum RVocError {
     #[error("error deleting user: {source}")]
     DeleteUser { source: BoxDynError },
 
+    #[error("error logging in: {source}")]
+    Login { source: BoxDynError },
+
     #[error("error while inserting session to database: {source}")]
     InsertSession { source: BoxDynError },
 
@@ -133,6 +136,9 @@ pub enum UserError {
 
     #[error("the username does not exist: {username}")]
     UsernameDoesNotExist { username: String },
+
+    #[error("the username or password did not match")]
+    InvalidUsernamePassword,
 }
 
 trait RequireSendAndSync: Send + Sync {}

@@ -91,7 +91,7 @@ pub async fn delete_account(
                             username: username.into(),
                         },
                     )),
-                    Ok(1) => Ok(StatusCode::OK),
+                    Ok(1) => Ok(StatusCode::NO_CONTENT),
                     Ok(affected_rows) => {
                         unreachable!("deleted exactly one user, but affected {affected_rows} rows")
                     }

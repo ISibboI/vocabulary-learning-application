@@ -10,6 +10,12 @@ pub struct CreateAccount {
     pub password: SecBytes,
 }
 
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+pub struct Login {
+    pub name: String,
+    pub password: SecBytes,
+}
+
 #[cfg(test)]
 mod tests {
     use crate::CreateAccount;
