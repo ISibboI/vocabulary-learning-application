@@ -72,5 +72,5 @@ jobs:
     - name: Run integration tests
       uses: BerniWittmann/background-server-action@v1
       with:
-        command: integrationTestsBinary/bin/integration-tests
+        command: RUST_BACKTRACE=1 integrationTestsBinary/bin/integration-tests
         start: debugBinary/bin/rvoc-backend web

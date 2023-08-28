@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use anyhow::bail;
 use reqwest::{Client, ClientBuilder, Response, StatusCode};
 use serde::Serialize;
 
@@ -10,8 +11,8 @@ pub struct HttpClient {
 }
 
 impl HttpClient {
-    pub async fn new() -> Self {
-        let client = ClientBuilder::new().cookie_store(true).build().unwrap();
+    pub async fn new() -> anyhow::Result<Self> {
+        let client = ClientBuilder::new().cookie_store(true).build()?;
 
         for _ in 0..10 {
             match client.get(BASE_URL).send().await {
@@ -28,32 +29,30 @@ impl HttpClient {
 
         tokio::time::sleep(Duration::from_secs(1)).await;
 
-        Self { client }
+        Ok(Self { client })
     }
 
-    pub async fn post<T: Serialize>(&self, path: &str, body: T) -> Response {
-        self.client
+    pub async fn post<T: Serialize>(&self, path: &str, body: T) -> anyhow::Result<Response> {
+        Ok(self
+            .client
             .post(format!("{BASE_URL}{path}"))
             .json(&body)
             .send()
-            .await
-            .unwrap()
+            .await?)
     }
 
-    pub async fn post_empty(&self, path: &str) -> Response {
-        self.client
-            .post(format!("{BASE_URL}{path}"))
-            .send()
-            .await
-            .unwrap()
+    pub async fn post_empty(&self, path: &str) -> anyhow::Result<Response> {
+        Ok(self.client.post(format!("{BASE_URL}{path}")).send().await?)
     }
 }
 
-pub async fn assert_response_status(response: Response, status: StatusCode) {
-    assert_eq!(
-        response.status(),
-        status,
-        "unexpected response:\n{:?}\n",
-        std::str::from_utf8(response.bytes().await.unwrap().as_ref()),
-    );
+pub async fn assert_response_status(response: Response, status: StatusCode) -> anyhow::Result<()> {
+    if response.status() != status {
+        bail!(
+            "unexpected response:\n{:?}\n",
+            std::str::from_utf8(response.bytes().await.unwrap().as_ref()),
+        );
+    } else {
+        Ok(())
+    }
 }

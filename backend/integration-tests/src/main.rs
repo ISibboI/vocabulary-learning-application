@@ -1,7 +1,7 @@
 use std::process::ExitCode;
 
 use api_commands::{CreateAccount, Login};
-use log::info;
+use log::{error, info};
 use reqwest::StatusCode;
 use simplelog::TermLogger;
 use tokio::spawn;
@@ -10,20 +10,21 @@ use crate::util::{assert_response_status, HttpClient};
 
 mod util;
 
-fn initialise_logging() {
-    TermLogger::new(
+fn initialise_logging() -> anyhow::Result<()> {
+    TermLogger::init(
         log::LevelFilter::Info,
         simplelog::Config::default(),
         simplelog::TerminalMode::Mixed,
         simplelog::ColorChoice::Auto,
-    );
+    )?;
 
     info!("Logging initialised");
+    Ok(())
 }
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> ExitCode {
-    initialise_logging();
+    initialise_logging().unwrap();
 
     let tasks = [
         spawn(test_user_account_creation()),
@@ -42,6 +43,7 @@ async fn main() -> ExitCode {
     let mut has_error = false;
     for task in tasks {
         let result = task.await;
+        let Ok(result) = result else { error!("{result:?}"); continue; };
         has_error |= result.is_err();
         info!("{:?}", result);
     }
@@ -55,8 +57,8 @@ async fn main() -> ExitCode {
     }
 }
 
-async fn test_user_account_creation() {
-    let client = HttpClient::new().await;
+async fn test_user_account_creation() -> anyhow::Result<()> {
+    let client = HttpClient::new().await?;
     let response = client
         .post(
             "/accounts/create",
@@ -65,13 +67,13 @@ async fn test_user_account_creation() {
                 password: "frank😀😀😀".to_owned().into(),
             },
         )
-        .await;
+        .await?;
 
     assert_response_status(response, StatusCode::CREATED).await
 }
 
-async fn test_duplicate_user_account_creation() {
-    let client = HttpClient::new().await;
+async fn test_duplicate_user_account_creation() -> anyhow::Result<()> {
+    let client = HttpClient::new().await?;
     let response = client
         .post(
             "/accounts/create",
@@ -80,9 +82,9 @@ async fn test_duplicate_user_account_creation() {
                 password: "luxemburg".to_owned().into(),
             },
         )
-        .await;
+        .await?;
 
-    assert_response_status(response, StatusCode::CREATED).await;
+    assert_response_status(response, StatusCode::CREATED).await?;
 
     let response = client
         .post(
@@ -92,13 +94,13 @@ async fn test_duplicate_user_account_creation() {
                 password: "luxemburg".to_owned().into(),
             },
         )
-        .await;
+        .await?;
 
-    assert_response_status(response, StatusCode::CONFLICT).await;
+    assert_response_status(response, StatusCode::CONFLICT).await
 }
 
-async fn test_user_account_deletion() {
-    let client = HttpClient::new().await;
+async fn test_user_account_deletion() -> anyhow::Result<()> {
+    let client = HttpClient::new().await?;
     let response = client
         .post(
             "/accounts/create",
@@ -107,13 +109,13 @@ async fn test_user_account_deletion() {
                 password: "von stauffenberg".to_owned().into(),
             },
         )
-        .await;
+        .await?;
 
-    assert_response_status(response, StatusCode::CREATED).await;
+    assert_response_status(response, StatusCode::CREATED).await?;
 
-    let response = client.post_empty("/accounts/delete").await;
+    let response = client.post_empty("/accounts/delete").await?;
 
-    assert_response_status(response, StatusCode::UNAUTHORIZED).await;
+    assert_response_status(response, StatusCode::UNAUTHORIZED).await?;
 
     let response = client
         .post(
@@ -123,17 +125,17 @@ async fn test_user_account_deletion() {
                 password: "von stauffenberg".to_owned().into(),
             },
         )
-        .await;
+        .await?;
 
-    assert_response_status(response, StatusCode::NO_CONTENT).await;
+    assert_response_status(response, StatusCode::NO_CONTENT).await?;
 
-    let response = client.post_empty("/accounts/delete").await;
+    let response = client.post_empty("/accounts/delete").await?;
 
-    assert_response_status(response, StatusCode::NO_CONTENT).await;
+    assert_response_status(response, StatusCode::NO_CONTENT).await
 }
 
-async fn test_login_logout() {
-    let client = HttpClient::new().await;
+async fn test_login_logout() -> anyhow::Result<()> {
+    let client = HttpClient::new().await?;
     let response = client
         .post(
             "/accounts/create",
@@ -142,13 +144,13 @@ async fn test_login_logout() {
                 password: "wald😀😀😀😀".to_owned().into(),
             },
         )
-        .await;
+        .await?;
 
-    assert_response_status(response, StatusCode::CREATED).await;
+    assert_response_status(response, StatusCode::CREATED).await?;
 
-    let response = client.post_empty("/accounts/logout").await;
+    let response = client.post_empty("/accounts/logout").await?;
 
-    assert_response_status(response, StatusCode::UNAUTHORIZED).await;
+    assert_response_status(response, StatusCode::UNAUTHORIZED).await?;
 
     let response = client
         .post(
@@ -158,21 +160,21 @@ async fn test_login_logout() {
                 password: "wald😀😀😀😀".to_owned().into(),
             },
         )
-        .await;
+        .await?;
 
-    assert_response_status(response, StatusCode::NO_CONTENT).await;
+    assert_response_status(response, StatusCode::NO_CONTENT).await?;
 
-    let response = client.post_empty("/accounts/logout").await;
+    let response = client.post_empty("/accounts/logout").await?;
 
-    assert_response_status(response, StatusCode::NO_CONTENT).await;
+    assert_response_status(response, StatusCode::NO_CONTENT).await?;
 
-    let response = client.post_empty("/accounts/logout").await;
+    let response = client.post_empty("/accounts/logout").await?;
 
-    assert_response_status(response, StatusCode::UNAUTHORIZED).await;
+    assert_response_status(response, StatusCode::UNAUTHORIZED).await
 }
 
-async fn test_wrong_password() {
-    let client = HttpClient::new().await;
+async fn test_wrong_password() -> anyhow::Result<()> {
+    let client = HttpClient::new().await?;
     let response = client
         .post(
             "/accounts/create",
@@ -181,9 +183,9 @@ async fn test_wrong_password() {
                 password: "kreyssig".to_owned().into(),
             },
         )
-        .await;
+        .await?;
 
-    assert_response_status(response, StatusCode::CREATED).await;
+    assert_response_status(response, StatusCode::CREATED).await?;
 
     // wrong password
     let response = client
@@ -194,9 +196,9 @@ async fn test_wrong_password() {
                 password: "anders".to_owned().into(),
             },
         )
-        .await;
+        .await?;
 
-    assert_response_status(response, StatusCode::BAD_REQUEST).await;
+    assert_response_status(response, StatusCode::BAD_REQUEST).await?;
 
     // correct password
     let response = client
@@ -207,9 +209,9 @@ async fn test_wrong_password() {
                 password: "kreyssig".to_owned().into(),
             },
         )
-        .await;
+        .await?;
 
-    assert_response_status(response, StatusCode::NO_CONTENT).await;
+    assert_response_status(response, StatusCode::NO_CONTENT).await?;
 
     // using a wrong password logs out
     let response = client
@@ -220,13 +222,13 @@ async fn test_wrong_password() {
                 password: "anders".to_owned().into(),
             },
         )
-        .await;
+        .await?;
 
-    assert_response_status(response, StatusCode::BAD_REQUEST).await;
+    assert_response_status(response, StatusCode::BAD_REQUEST).await?;
 
-    let response = client.post_empty("/accounts/logout").await;
+    let response = client.post_empty("/accounts/logout").await?;
 
-    assert_response_status(response, StatusCode::UNAUTHORIZED).await;
+    assert_response_status(response, StatusCode::UNAUTHORIZED).await?;
 
     // does normal login-logout still work?
     let response = client
@@ -237,21 +239,21 @@ async fn test_wrong_password() {
                 password: "kreyssig".to_owned().into(),
             },
         )
-        .await;
+        .await?;
 
-    assert_response_status(response, StatusCode::NO_CONTENT).await;
+    assert_response_status(response, StatusCode::NO_CONTENT).await?;
 
-    let response = client.post_empty("/accounts/logout").await;
+    let response = client.post_empty("/accounts/logout").await?;
 
-    assert_response_status(response, StatusCode::NO_CONTENT).await;
+    assert_response_status(response, StatusCode::NO_CONTENT).await?;
 
-    let response = client.post_empty("/accounts/logout").await;
+    let response = client.post_empty("/accounts/logout").await?;
 
-    assert_response_status(response, StatusCode::UNAUTHORIZED).await;
+    assert_response_status(response, StatusCode::UNAUTHORIZED).await
 }
 
-async fn test_too_long_username() {
-    let client = HttpClient::new().await;
+async fn test_too_long_username() -> anyhow::Result<()> {
+    let client = HttpClient::new().await?;
     let response = client
         .post(
             "/accounts/create",
@@ -261,13 +263,13 @@ async fn test_too_long_username() {
                 password: "hirsch😀😀".to_owned().into(),
             },
         )
-        .await;
+        .await?;
 
-    assert_response_status(response, StatusCode::BAD_REQUEST).await;
+    assert_response_status(response, StatusCode::BAD_REQUEST).await
 }
 
-async fn test_too_long_password() {
-    let client = HttpClient::new().await;
+async fn test_too_long_password() -> anyhow::Result<()> {
+    let client = HttpClient::new().await?;
     let response = client
         .post(
             "/accounts/create",
@@ -277,13 +279,13 @@ async fn test_too_long_password() {
                 password: "höhn-höhn-höhn-höhn-höhn-höhn-höhn-höhn-höhn-höhn-höhn-höhn-höhn-höhn-höhn-höhn-höhn-höhn-höhn-höhn-höhn-höhn-höhn-höhn-höhn-höhn-höhn-höhn-höhn-höhn-höhn".to_owned().into(),
             },
         )
-        .await;
+        .await?;
 
-    assert_response_status(response, StatusCode::BAD_REQUEST).await;
+    assert_response_status(response, StatusCode::BAD_REQUEST).await
 }
 
-async fn test_too_short_username() {
-    let client = HttpClient::new().await;
+async fn test_too_short_username() -> anyhow::Result<()> {
+    let client = HttpClient::new().await?;
     let response = client
         .post(
             "/accounts/create",
@@ -292,13 +294,13 @@ async fn test_too_short_username() {
                 password: "ibach😀😀😀".to_owned().into(),
             },
         )
-        .await;
+        .await?;
 
-    assert_response_status(response, StatusCode::BAD_REQUEST).await;
+    assert_response_status(response, StatusCode::BAD_REQUEST).await
 }
 
-async fn test_too_short_password() {
-    let client = HttpClient::new().await;
+async fn test_too_short_password() -> anyhow::Result<()> {
+    let client = HttpClient::new().await?;
     let response = client
         .post(
             "/accounts/create",
@@ -307,13 +309,13 @@ async fn test_too_short_password() {
                 password: "ils".to_owned().into(),
             },
         )
-        .await;
+        .await?;
 
-    assert_response_status(response, StatusCode::BAD_REQUEST).await;
+    assert_response_status(response, StatusCode::BAD_REQUEST).await
 }
 
-async fn test_wrong_username_login() {
-    let client = HttpClient::new().await;
+async fn test_wrong_username_login() -> anyhow::Result<()> {
+    let client = HttpClient::new().await?;
     let response = client
         .post(
             "/accounts/login",
@@ -322,13 +324,13 @@ async fn test_wrong_username_login() {
                 password: "hüppeler".to_owned().into(),
             },
         )
-        .await;
+        .await?;
 
-    assert_response_status(response, StatusCode::BAD_REQUEST).await;
+    assert_response_status(response, StatusCode::BAD_REQUEST).await
 }
 
-async fn test_too_long_password_login() {
-    let client = HttpClient::new().await;
+async fn test_too_long_password_login() -> anyhow::Result<()> {
+    let client = HttpClient::new().await?;
     let response = client
         .post(
             "/accounts/create",
@@ -337,9 +339,9 @@ async fn test_too_long_password_login() {
                 password: "hundhammer".to_owned().into(),
             },
         )
-        .await;
+        .await?;
 
-    assert_response_status(response, StatusCode::CREATED).await;
+    assert_response_status(response, StatusCode::CREATED).await?;
 
     let response = client
         .post(
@@ -349,7 +351,7 @@ async fn test_too_long_password_login() {
                 password: "hundhammer-hundhammer-hundhammer-hundhammer-hundhammer-hundhammer-hundhammer-hundhammer-hundhammer-hundhammer-hundhammer-hundhammer".to_owned().into(),
             },
         )
-        .await;
+        .await?;
 
-    assert_response_status(response, StatusCode::BAD_REQUEST).await;
+    assert_response_status(response, StatusCode::BAD_REQUEST).await
 }
