@@ -10,3 +10,9 @@ version = "0.0.1"
 edition = "2021"
 rust-version = "1.58.1"
 publish = false
+
+[workspace.dependencies]
+# sensitive data handling
+secstr = { git = "https://codeberg.org/ISibboI/secstr.git", rev = "841f3d5c66b6057bcd19288d10206e1b1cbd76c1", features = [
+    "serde",
+] }
