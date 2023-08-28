@@ -1,5 +1,6 @@
 use api_commands::CreateAccount;
 use axum::{http::StatusCode, Extension, Json};
+use tracing::instrument;
 
 use crate::error::{RVocError, RVocResult};
 
@@ -13,6 +14,7 @@ use super::{authentication::LoggedInUser, WebConfiguration, WebDatabaseConnectio
 pub mod model;
 pub mod password_hash;
 
+#[instrument(err, skip(database_connection_pool, configuration))]
 pub async fn create_account(
     Extension(database_connection_pool): WebDatabaseConnectionPool,
     Extension(configuration): WebConfiguration,
@@ -70,6 +72,7 @@ pub async fn create_account(
         .await
 }
 
+#[instrument(err, skip(database_connection_pool))]
 pub async fn delete_account(
     Extension(username): Extension<LoggedInUser>,
     Extension(database_connection_pool): WebDatabaseConnectionPool,

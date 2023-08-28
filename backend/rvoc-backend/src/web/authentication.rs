@@ -6,6 +6,7 @@ use axum::{
     Extension, Json,
 };
 use diesel::QueryDsl;
+use tracing::instrument;
 use typed_session_axum::{SessionHandle, WritableSession};
 
 use crate::{
@@ -34,6 +35,7 @@ pub async fn ensure_logged_in<B>(mut request: Request<B>, next: Next<B>) -> Resp
     next.run(request).await
 }
 
+#[instrument(err, skip(database_connection_pool, configuration))]
 pub async fn login(
     Extension(database_connection_pool): WebDatabaseConnectionPool,
     Extension(configuration): WebConfiguration,
@@ -101,6 +103,7 @@ pub async fn login(
         .await
 }
 
+#[instrument(err)]
 pub async fn logout(mut session: WritableSession<RVocSessionData>) -> RVocResult<StatusCode> {
     session.delete();
 
