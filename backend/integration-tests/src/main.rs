@@ -1,6 +1,6 @@
 use anyhow::bail;
 use api_commands::{CreateAccount, Login};
-use log::{error, info};
+use log::{debug, error, info};
 use reqwest::StatusCode;
 use simplelog::TermLogger;
 use tokio::spawn;
@@ -47,7 +47,7 @@ async fn main() -> anyhow::Result<()> {
             has_error = true;
             error!("{:?}", result);
         } else {
-            info!("{:?}", result);
+            debug!("{:?}", result);
         }
     }
 
