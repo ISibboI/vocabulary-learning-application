@@ -1,5 +1,4 @@
-use std::process::ExitCode;
-
+use anyhow::bail;
 use api_commands::{CreateAccount, Login};
 use log::{error, info};
 use reqwest::StatusCode;
@@ -23,8 +22,8 @@ fn initialise_logging() -> anyhow::Result<()> {
 }
 
 #[tokio::main(flavor = "current_thread")]
-async fn main() -> ExitCode {
-    initialise_logging().unwrap();
+async fn main() -> anyhow::Result<()> {
+    initialise_logging()?;
 
     let tasks = [
         spawn(test_user_account_creation()),
@@ -44,16 +43,20 @@ async fn main() -> ExitCode {
     for task in tasks {
         let result = task.await;
         let Ok(result) = result else { error!("{result:?}"); continue; };
-        has_error |= result.is_err();
-        info!("{:?}", result);
+        if result.is_err() {
+            has_error = true;
+            error!("{:?}", result);
+        } else {
+            info!("{:?}", result);
+        }
     }
 
     if has_error {
-        info!("Finished with errors");
-        ExitCode::FAILURE
+        error!("Finished with errors");
+        bail!("Finished with errors");
     } else {
         info!("Finished successfully");
-        ExitCode::SUCCESS
+        Ok(())
     }
 }
 
