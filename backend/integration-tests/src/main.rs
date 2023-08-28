@@ -41,7 +41,7 @@ async fn test_user_account_creation(client: &HttpClient) {
 
     assert_eq!(
         response.status(),
-        StatusCode::OK,
+        StatusCode::CREATED,
         "unexpected response:\n{:?}\n",
         std::str::from_utf8(response.bytes().await.unwrap().as_ref()),
     );
