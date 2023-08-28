@@ -85,7 +85,7 @@ impl IntoResponse for RVocError {
         if let RVocError::UserError(user_error) = self {
             user_error.into_response()
         } else {
-            error!("Web API error: {self}");
+            error!("Web API error: {self:?}");
 
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
