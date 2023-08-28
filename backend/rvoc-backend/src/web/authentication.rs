@@ -6,7 +6,7 @@ use axum::{
     Extension, Json,
 };
 use diesel::QueryDsl;
-use typed_session_axum::{ReadableSession, WritableSession};
+use typed_session_axum::{SessionHandle, WritableSession};
 
 use crate::{
     error::{RVocError, RVocResult, UserError},
@@ -18,12 +18,15 @@ use super::{
 };
 
 pub async fn ensure_logged_in<B>(mut request: Request<B>, next: Next<B>) -> Response {
-    let session: &ReadableSession<RVocSessionData> = request.extensions().get().unwrap();
+    let session: &SessionHandle<RVocSessionData> = request.extensions().get().unwrap();
+    let session = session.read().await;
+    let session_data = session.data();
 
-    match session.data() {
+    match session_data {
         RVocSessionData::Anonymous => return StatusCode::UNAUTHORIZED.into_response(),
         RVocSessionData::LoggedIn(username) => {
             let username = username.clone();
+            drop(session);
             request.extensions_mut().insert(LoggedInUser(username));
         }
     }
