@@ -11,6 +11,8 @@ on:
       - '**/rust-toolchain.toml'
       # Run on changed source files
       - 'backend/rvoc-backend/src/**'
+      - 'backend/api_commands/src/**'
+      - 'backend/integration-tests/src/**'
     branches: main
   pull_request:
     branches: main
