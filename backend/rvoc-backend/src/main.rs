@@ -18,7 +18,6 @@ mod configuration;
 mod database;
 mod error;
 mod job_queue;
-mod lib_api_commands;
 mod update_wiktionary;
 mod web;
 

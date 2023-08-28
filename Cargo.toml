@@ -1,5 +1,9 @@
 [workspace]
-members = ["backend/rvoc-backend", "backend/integration-tests"]
+members = [
+    "backend/rvoc-backend",
+    "backend/integration-tests",
+    "backend/api_commands",
+]
 
 [workspace.package]
 version = "0.0.1"

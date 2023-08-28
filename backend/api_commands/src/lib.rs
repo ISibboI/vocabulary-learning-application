@@ -9,3 +9,9 @@ pub struct CreateAccount {
     pub name: String,
     pub password: SecBytes,
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_serde_create_account() {}
+}

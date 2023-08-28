@@ -1,0 +1,20 @@
+[package]
+name = "api_commands"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "api_commands"
+path = "src/lib.rs"
+
+[dependencies]
+# serde
+serde = "1.0.186"
+serde_json = "1.0.105"
+
+# sensitive data handling
+secstr = "0.5.1"

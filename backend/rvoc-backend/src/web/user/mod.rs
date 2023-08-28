@@ -1,9 +1,7 @@
+use api_commands::CreateAccount;
 use axum::{Extension, Json};
 
-use crate::{
-    error::{RVocError, RVocResult},
-    lib_api_commands::CreateAccount,
-};
+use crate::error::{RVocError, RVocResult};
 
 use self::{
     model::{User, Username},

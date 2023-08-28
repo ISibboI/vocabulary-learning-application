@@ -97,6 +97,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f768393e7fabd388fe8409b13faa4d93ab0fef35db1508438dfdb066918bcf38"
 
 [[package]]
+name = "api_commands"
+version = "0.0.1"
+dependencies = [
+ "secstr",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "argon2"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1000,6 +1009,7 @@ dependencies = [
 name = "integration-tests"
 version = "0.0.1"
 dependencies = [
+ "api_commands",
  "log",
  "reqwest",
  "rvoc-backend",
@@ -1729,6 +1739,7 @@ checksum = "7ffc183a10b4478d04cbbbfc96d0873219d962dd5accaff2ffbd4ceb7df837f4"
 name = "rvoc-backend"
 version = "0.0.1"
 dependencies = [
+ "api_commands",
  "argon2",
  "async-trait",
  "axum",
