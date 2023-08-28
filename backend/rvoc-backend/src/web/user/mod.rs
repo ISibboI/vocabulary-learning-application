@@ -1,5 +1,5 @@
 use api_commands::CreateAccount;
-use axum::{Extension, Json};
+use axum::{http::StatusCode, Extension, Json};
 
 use crate::error::{RVocError, RVocResult};
 
@@ -17,7 +17,7 @@ pub async fn create_account(
     Extension(database_connection_pool): WebDatabaseConnectionPool,
     Extension(configuration): WebConfiguration,
     Json(create_account): Json<CreateAccount>,
-) -> RVocResult<()> {
+) -> RVocResult<StatusCode> {
     configuration.verify_username_length(&create_account.name)?;
     configuration.verify_password_length(&create_account.password)?;
 
@@ -38,7 +38,7 @@ pub async fn create_account(
                     .execute(database_connection)
                     .await
                 {
-                    Ok(1) => Ok(()),
+                    Ok(1) => Ok(StatusCode::CREATED),
                     Ok(affected_rows) => {
                         unreachable!("inserting exactly one row, but affected {affected_rows} rows")
                     }

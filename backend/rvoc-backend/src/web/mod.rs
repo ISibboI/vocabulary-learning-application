@@ -14,7 +14,7 @@ use typed_session_axum::{SessionLayer, SessionLayerError};
 use crate::{
     configuration::Configuration,
     database::RVocAsyncDatabaseConnectionPool,
-    error::{RVocError, RVocResult},
+    error::{RVocError, RVocResult, UserError},
     web::{
         session::{RVocSessionData, RVocSessionStoreConnector},
         user::create_account,
@@ -81,11 +81,27 @@ async fn hello_world() -> &'static str {
 impl IntoResponse for RVocError {
     fn into_response(self) -> axum::response::Response {
         if let RVocError::UserError(user_error) = self {
-            user_error.to_string().into_response()
+            user_error.into_response()
         } else {
             error!("Web API error: {self}");
 
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        }
+    }
+}
+
+impl IntoResponse for UserError {
+    fn into_response(self) -> axum::response::Response {
+        (self.status_code(), self.to_string()).into_response()
+    }
+}
+
+impl UserError {
+    fn status_code(&self) -> StatusCode {
+        match self {
+            UserError::PasswordLength { .. } => StatusCode::BAD_REQUEST,
+            UserError::UsernameLength { .. } => StatusCode::BAD_REQUEST,
+            UserError::UsernameExists { .. } => StatusCode::CONFLICT,
         }
     }
 }
