@@ -50,8 +50,13 @@ fn setup_tracing_subscriber(configuration: &Configuration) -> RVocResult<()> {
         .json()
         .with_span_list(true)
         .with_filter(FilterFn::new(|metadata| {
-            !(metadata.target().starts_with("tokio_util::") && metadata.level() <= &Level::TRACE
-                || metadata.target().starts_with("hyper::") && metadata.level() <= &Level::DEBUG)
+            if metadata.target().starts_with("tokio_util::") {
+                metadata.level() > &Level::TRACE
+            } else if metadata.target().starts_with("hyper::") {
+                metadata.level() > &Level::DEBUG
+            } else {
+                true
+            }
         }));
     let subscriber = Registry::default().with(logging_layer);
 
