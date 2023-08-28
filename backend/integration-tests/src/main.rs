@@ -339,7 +339,7 @@ async fn test_too_long_password_login() {
         )
         .await;
 
-    assert_response_status(response, StatusCode::OK).await;
+    assert_response_status(response, StatusCode::CREATED).await;
 
     let response = client
         .post(
