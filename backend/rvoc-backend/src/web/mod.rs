@@ -2,28 +2,28 @@ use std::{convert::Infallible, fmt::Display, sync::Arc};
 
 use axum::{
     error_handling::HandleErrorLayer,
-    http::{Request, StatusCode},
-    middleware::{self, Next},
-    response::{IntoResponse, Response},
+    http::StatusCode,
+    middleware,
+    response::IntoResponse,
     routing::{delete, get, post},
     Extension, Router,
 };
 use tower::ServiceBuilder;
 use tracing::{debug, error, info, instrument};
-use typed_session_axum::{ReadableSession, SessionLayer, SessionLayerError};
+use typed_session_axum::{SessionLayer, SessionLayerError};
 
 use crate::{
     configuration::Configuration,
     database::RVocAsyncDatabaseConnectionPool,
     error::{RVocError, RVocResult, UserError},
     web::{
+        authentication::ensure_logged_in,
         session::{RVocSessionData, RVocSessionStoreConnector},
         user::{create_account, delete_account},
     },
 };
 
-use self::user::model::Username;
-
+mod authentication;
 mod session;
 mod user;
 
@@ -81,30 +81,6 @@ pub async fn run_web_api(
 
 async fn hello_world() -> &'static str {
     "Hello World!"
-}
-
-async fn ensure_logged_in<B>(mut request: Request<B>, next: Next<B>) -> Response {
-    let session: &ReadableSession<RVocSessionData> = request.extensions().get().unwrap();
-
-    match session.data() {
-        RVocSessionData::Anonymous => return StatusCode::UNAUTHORIZED.into_response(),
-        RVocSessionData::LoggedIn(username) => {
-            let username = username.clone();
-            request.extensions_mut().insert(LoggedInUser(username));
-        }
-    }
-
-    next.run(request).await
-}
-
-/// If this extension is found, it means that the request was made by the contained username.
-#[derive(Debug, Clone)]
-pub struct LoggedInUser(Username);
-
-impl From<LoggedInUser> for String {
-    fn from(value: LoggedInUser) -> Self {
-        value.0.into()
-    }
 }
 
 impl IntoResponse for RVocError {

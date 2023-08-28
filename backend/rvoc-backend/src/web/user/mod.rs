@@ -8,7 +8,7 @@ use self::{
     password_hash::PasswordHash,
 };
 
-use super::{LoggedInUser, WebConfiguration, WebDatabaseConnectionPool};
+use super::{authentication::LoggedInUser, WebConfiguration, WebDatabaseConnectionPool};
 
 pub mod model;
 pub mod password_hash;
@@ -82,7 +82,7 @@ pub async fn delete_account(
                 use diesel_async::RunQueryDsl;
 
                 match diesel::delete(users)
-                    .filter(name.eq(username.0.as_ref()))
+                    .filter(name.eq(username.as_ref()))
                     .execute(database_connection)
                     .await
                 {
