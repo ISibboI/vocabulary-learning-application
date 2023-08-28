@@ -49,7 +49,9 @@ impl HttpClient {
 pub async fn assert_response_status(response: Response, status: StatusCode) -> anyhow::Result<()> {
     if response.status() != status {
         bail!(
-            "unexpected response:\n{:?}\n",
+            "unexpected response: {}\nexpected: {}\n{:?}\n",
+            response.status(),
+            status,
             std::str::from_utf8(response.bytes().await.unwrap().as_ref()),
         );
     } else {
