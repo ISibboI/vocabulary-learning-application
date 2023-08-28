@@ -37,10 +37,8 @@ pub async fn login(
     mut session: WritableSession<RVocSessionData>,
     Json(login): Json<Login>,
 ) -> RVocResult<StatusCode> {
-    let session_data = session.data_mut();
-    if matches!(session_data, RVocSessionData::LoggedIn(_)) {
-        return Ok(StatusCode::NO_CONTENT);
-    }
+    configuration.verify_username_length(&login.name)?;
+    configuration.verify_password_length(&login.password)?;
 
     database_connection_pool
         .execute_transaction(|database_connection| {
@@ -70,6 +68,7 @@ pub async fn login(
                 let verify_result = password_hash.verify(login.password, configuration)?;
 
                 if !verify_result.matches {
+                    *session.data_mut() = RVocSessionData::Anonymous;
                     return Err(UserError::InvalidUsernamePassword.into());
                 }
 
@@ -91,7 +90,7 @@ pub async fn login(
                     }
                 }
 
-                *session_data = RVocSessionData::LoggedIn(Username::new(login.name));
+                *session.data_mut() = RVocSessionData::LoggedIn(Username::new(login.name));
 
                 Ok(StatusCode::NO_CONTENT)
             })

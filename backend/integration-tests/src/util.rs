@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use reqwest::{Client, Response};
+use reqwest::{Client, ClientBuilder, Response, StatusCode};
 use serde::Serialize;
 
 static BASE_URL: &str = "http://localhost:8093";
@@ -11,7 +11,7 @@ pub struct HttpClient {
 
 impl HttpClient {
     pub async fn new() -> Self {
-        let client = Client::default();
+        let client = ClientBuilder::new().cookie_store(true).build().unwrap();
 
         for _ in 0..10 {
             match client.get(BASE_URL).send().await {
@@ -39,4 +39,21 @@ impl HttpClient {
             .await
             .unwrap()
     }
+
+    pub async fn post_empty(&self, path: &str) -> Response {
+        self.client
+            .post(format!("{BASE_URL}{path}"))
+            .send()
+            .await
+            .unwrap()
+    }
+}
+
+pub async fn assert_response_status(response: Response, status: StatusCode) {
+    assert_eq!(
+        response.status(),
+        status,
+        "unexpected response:\n{:?}\n",
+        std::str::from_utf8(response.bytes().await.unwrap().as_ref()),
+    );
 }
