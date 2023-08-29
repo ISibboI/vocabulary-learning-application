@@ -1,6 +1,7 @@
 use api_commands::CreateAccount;
 use axum::{http::StatusCode, Extension, Json};
 use tracing::instrument;
+use typed_session_axum::WritableSession;
 
 use crate::error::{RVocError, RVocResult, UserError};
 
@@ -9,7 +10,10 @@ use self::{
     password_hash::PasswordHash,
 };
 
-use super::{authentication::LoggedInUser, WebConfiguration, WebDatabaseConnectionPool};
+use super::{
+    authentication::LoggedInUser, session::RVocSessionData, WebConfiguration,
+    WebDatabaseConnectionPool,
+};
 
 pub mod model;
 pub mod password_hash;
@@ -63,7 +67,10 @@ pub async fn create_account(
 pub async fn delete_account(
     Extension(username): Extension<LoggedInUser>,
     Extension(database_connection_pool): WebDatabaseConnectionPool,
+    mut session: WritableSession<RVocSessionData>,
 ) -> RVocResult<StatusCode> {
+    session.delete();
+
     database_connection_pool
         .execute_transaction(|database_connection| {
             Box::pin(async {

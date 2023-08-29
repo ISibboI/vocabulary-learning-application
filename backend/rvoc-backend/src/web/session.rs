@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use diesel::{Insertable, Queryable, Selectable};
 use thiserror::Error;
-use tracing::debug;
+use tracing::trace;
 use typed_session::{Session, SessionExpiry, SessionId, WriteSessionResult};
 use typed_session_axum::typed_session::SessionStoreConnector;
 
@@ -210,7 +210,7 @@ impl SessionStoreConnector<RVocSessionData> for RVocSessionStoreConnector {
 
                     if deleted_count != 1 {
                         assert_eq!(deleted_count, 0);
-                        debug!("Session id that was supposed to be deleted was not found");
+                        trace!("Session id that was supposed to be deleted was not found. This may happen if the account was deleted.");
                     }
 
                     Ok(())
