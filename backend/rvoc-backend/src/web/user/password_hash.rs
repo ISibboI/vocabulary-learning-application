@@ -152,6 +152,13 @@ mod tests {
             verify_password_result.is_ok(),
             "password hash result: {verify_password_result:?}"
         );
+        assert_eq!(
+            verify_password_result.unwrap(),
+            VerifyPasswordResult {
+                matches: true,
+                modified: false,
+            }
+        );
 
         // convert to string and back
         let password_hash_string = String::from(password_hash);
