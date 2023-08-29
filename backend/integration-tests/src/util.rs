@@ -66,3 +66,12 @@ pub async fn assert_response_status(response: Response, status: StatusCode) -> a
         Ok(())
     }
 }
+
+#[macro_export]
+macro_rules! assert_response_status {
+    ($response:expr, $status:expr) => {
+        assert_response_status($response, $status)
+            .await
+            .with_context(|| format!("{}:{}:{}", file!(), line!(), column!()))
+    };
+}

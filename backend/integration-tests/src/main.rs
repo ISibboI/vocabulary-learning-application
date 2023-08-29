@@ -81,7 +81,7 @@ async fn test_user_account_creation() -> anyhow::Result<()> {
         )
         .await?;
 
-    assert_response_status(response, StatusCode::CREATED).await
+    assert_response_status!(response, StatusCode::CREATED)
 }
 
 async fn test_duplicate_user_account_creation() -> anyhow::Result<()> {
@@ -96,7 +96,7 @@ async fn test_duplicate_user_account_creation() -> anyhow::Result<()> {
         )
         .await?;
 
-    assert_response_status(response, StatusCode::CREATED).await?;
+    assert_response_status!(response, StatusCode::CREATED)?;
 
     let response = client
         .post(
@@ -108,7 +108,7 @@ async fn test_duplicate_user_account_creation() -> anyhow::Result<()> {
         )
         .await?;
 
-    assert_response_status(response, StatusCode::CONFLICT).await
+    assert_response_status!(response, StatusCode::CONFLICT)
 }
 
 async fn test_user_account_deletion() -> anyhow::Result<()> {
@@ -123,11 +123,11 @@ async fn test_user_account_deletion() -> anyhow::Result<()> {
         )
         .await?;
 
-    assert_response_status(response, StatusCode::CREATED).await?;
+    assert_response_status!(response, StatusCode::CREATED)?;
 
     let response = client.delete("/accounts/delete").await?;
 
-    assert_response_status(response, StatusCode::UNAUTHORIZED).await?;
+    assert_response_status!(response, StatusCode::UNAUTHORIZED)?;
 
     let response = client
         .post(
@@ -139,11 +139,11 @@ async fn test_user_account_deletion() -> anyhow::Result<()> {
         )
         .await?;
 
-    assert_response_status(response, StatusCode::NO_CONTENT).await?;
+    assert_response_status!(response, StatusCode::NO_CONTENT)?;
 
     let response = client.delete("/accounts/delete").await?;
 
-    assert_response_status(response, StatusCode::NO_CONTENT).await
+    assert_response_status!(response, StatusCode::NO_CONTENT)
 }
 
 async fn test_login_logout() -> anyhow::Result<()> {
@@ -160,15 +160,11 @@ async fn test_login_logout() -> anyhow::Result<()> {
         )
         .await?;
 
-    assert_response_status(response, StatusCode::CREATED)
-        .await
-        .with_context(|| line!())?;
+    assert_response_status!(response, StatusCode::CREATED)?;
 
     let response = client.post_empty("/accounts/logout").await?;
 
-    assert_response_status(response, StatusCode::UNAUTHORIZED)
-        .await
-        .with_context(|| line!())?;
+    assert_response_status!(response, StatusCode::UNAUTHORIZED)?;
 
     let response = client
         .post(
@@ -180,21 +176,15 @@ async fn test_login_logout() -> anyhow::Result<()> {
         )
         .await?;
 
-    assert_response_status(response, StatusCode::NO_CONTENT)
-        .await
-        .with_context(|| line!())?;
+    assert_response_status!(response, StatusCode::NO_CONTENT)?;
 
     let response = client.post_empty("/accounts/logout").await?;
 
-    assert_response_status(response, StatusCode::NO_CONTENT)
-        .await
-        .with_context(|| line!())?;
+    assert_response_status!(response, StatusCode::NO_CONTENT)?;
 
     let response = client.post_empty("/accounts/logout").await?;
 
-    assert_response_status(response, StatusCode::UNAUTHORIZED)
-        .await
-        .with_context(|| line!())
+    assert_response_status!(response, StatusCode::UNAUTHORIZED)
 }
 
 async fn test_wrong_password() -> anyhow::Result<()> {
@@ -209,7 +199,7 @@ async fn test_wrong_password() -> anyhow::Result<()> {
         )
         .await?;
 
-    assert_response_status(response, StatusCode::CREATED).await?;
+    assert_response_status!(response, StatusCode::CREATED)?;
 
     // wrong password
     let response = client
@@ -222,7 +212,7 @@ async fn test_wrong_password() -> anyhow::Result<()> {
         )
         .await?;
 
-    assert_response_status(response, StatusCode::BAD_REQUEST).await?;
+    assert_response_status!(response, StatusCode::BAD_REQUEST)?;
 
     // correct password
     let response = client
@@ -235,7 +225,7 @@ async fn test_wrong_password() -> anyhow::Result<()> {
         )
         .await?;
 
-    assert_response_status(response, StatusCode::NO_CONTENT).await?;
+    assert_response_status!(response, StatusCode::NO_CONTENT)?;
 
     // using a wrong password logs out
     let response = client
@@ -248,11 +238,11 @@ async fn test_wrong_password() -> anyhow::Result<()> {
         )
         .await?;
 
-    assert_response_status(response, StatusCode::BAD_REQUEST).await?;
+    assert_response_status!(response, StatusCode::BAD_REQUEST)?;
 
     let response = client.post_empty("/accounts/logout").await?;
 
-    assert_response_status(response, StatusCode::UNAUTHORIZED).await?;
+    assert_response_status!(response, StatusCode::UNAUTHORIZED)?;
 
     // does normal login-logout still work?
     let response = client
@@ -265,15 +255,15 @@ async fn test_wrong_password() -> anyhow::Result<()> {
         )
         .await?;
 
-    assert_response_status(response, StatusCode::NO_CONTENT).await?;
+    assert_response_status!(response, StatusCode::NO_CONTENT)?;
 
     let response = client.post_empty("/accounts/logout").await?;
 
-    assert_response_status(response, StatusCode::NO_CONTENT).await?;
+    assert_response_status!(response, StatusCode::NO_CONTENT)?;
 
     let response = client.post_empty("/accounts/logout").await?;
 
-    assert_response_status(response, StatusCode::UNAUTHORIZED).await
+    assert_response_status!(response, StatusCode::UNAUTHORIZED)
 }
 
 async fn test_too_long_username() -> anyhow::Result<()> {
@@ -289,7 +279,7 @@ async fn test_too_long_username() -> anyhow::Result<()> {
         )
         .await?;
 
-    assert_response_status(response, StatusCode::BAD_REQUEST).await
+    assert_response_status!(response, StatusCode::BAD_REQUEST)
 }
 
 async fn test_too_long_password() -> anyhow::Result<()> {
@@ -305,7 +295,7 @@ async fn test_too_long_password() -> anyhow::Result<()> {
         )
         .await?;
 
-    assert_response_status(response, StatusCode::BAD_REQUEST).await
+    assert_response_status!(response, StatusCode::BAD_REQUEST)
 }
 
 async fn test_too_short_username() -> anyhow::Result<()> {
@@ -320,7 +310,7 @@ async fn test_too_short_username() -> anyhow::Result<()> {
         )
         .await?;
 
-    assert_response_status(response, StatusCode::BAD_REQUEST).await
+    assert_response_status!(response, StatusCode::BAD_REQUEST)
 }
 
 async fn test_too_short_password() -> anyhow::Result<()> {
@@ -335,7 +325,7 @@ async fn test_too_short_password() -> anyhow::Result<()> {
         )
         .await?;
 
-    assert_response_status(response, StatusCode::BAD_REQUEST).await
+    assert_response_status!(response, StatusCode::BAD_REQUEST)
 }
 
 async fn test_wrong_username_login() -> anyhow::Result<()> {
@@ -350,7 +340,7 @@ async fn test_wrong_username_login() -> anyhow::Result<()> {
         )
         .await?;
 
-    assert_response_status(response, StatusCode::BAD_REQUEST).await
+    assert_response_status!(response, StatusCode::BAD_REQUEST)
 }
 
 async fn test_too_long_password_login() -> anyhow::Result<()> {
@@ -365,7 +355,7 @@ async fn test_too_long_password_login() -> anyhow::Result<()> {
         )
         .await?;
 
-    assert_response_status(response, StatusCode::CREATED).await?;
+    assert_response_status!(response, StatusCode::CREATED)?;
 
     let response = client
         .post(
@@ -377,5 +367,5 @@ async fn test_too_long_password_login() -> anyhow::Result<()> {
         )
         .await?;
 
-    assert_response_status(response, StatusCode::BAD_REQUEST).await
+    assert_response_status!(response, StatusCode::BAD_REQUEST)
 }
