@@ -81,6 +81,9 @@ pub enum RVocError {
     #[error("error deleting user: {source}")]
     DeleteUser { source: BoxDynError },
 
+    #[error("error deleting all user sessions: {source}")]
+    DeleteAllUserSessions { source: BoxDynError },
+
     #[error("error logging in: {source}")]
     Login { source: BoxDynError },
 

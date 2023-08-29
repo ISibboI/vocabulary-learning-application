@@ -83,7 +83,7 @@ pub async fn delete_account(
                     .filter(sessions::username.eq(username.as_ref()))
                     .execute(database_connection)
                     .await
-                    .map_err(|error| RVocError::DeleteUser {
+                    .map_err(|error| RVocError::DeleteAllUserSessions {
                         source: Box::new(error),
                     })?;
 
