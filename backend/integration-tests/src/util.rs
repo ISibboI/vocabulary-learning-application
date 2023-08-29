@@ -44,6 +44,14 @@ impl HttpClient {
     pub async fn post_empty(&self, path: &str) -> anyhow::Result<Response> {
         Ok(self.client.post(format!("{BASE_URL}{path}")).send().await?)
     }
+
+    pub async fn delete(&self, path: &str) -> anyhow::Result<Response> {
+        Ok(self
+            .client
+            .delete(format!("{BASE_URL}{path}"))
+            .send()
+            .await?)
+    }
 }
 
 pub async fn assert_response_status(response: Response, status: StatusCode) -> anyhow::Result<()> {

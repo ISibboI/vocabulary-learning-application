@@ -125,7 +125,7 @@ async fn test_user_account_deletion() -> anyhow::Result<()> {
 
     assert_response_status(response, StatusCode::CREATED).await?;
 
-    let response = client.post_empty("/accounts/delete").await?;
+    let response = client.delete("/accounts/delete").await?;
 
     assert_response_status(response, StatusCode::UNAUTHORIZED).await?;
 
@@ -141,7 +141,7 @@ async fn test_user_account_deletion() -> anyhow::Result<()> {
 
     assert_response_status(response, StatusCode::NO_CONTENT).await?;
 
-    let response = client.post_empty("/accounts/delete").await?;
+    let response = client.delete("/accounts/delete").await?;
 
     assert_response_status(response, StatusCode::NO_CONTENT).await
 }
