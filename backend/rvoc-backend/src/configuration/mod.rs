@@ -176,6 +176,29 @@ impl Configuration {
         Ok(result)
     }
 
+    pub fn test_configuration() -> Self {
+        Self {
+            postgres_url: "postgres://rvoc@localhost/rvoc".into(),
+            opentelemetry_url: None,
+            shutdown_timeout: Duration::seconds(30),
+            job_queue_poll_interval: Duration::seconds(60),
+            maximum_transaction_retry_count: 10u64,
+            api_listen_address: SocketAddr::from(([0, 0, 0, 0], 8093)),
+            minimum_username_length: 3,
+            maximum_username_length: 50,
+            minimum_password_length: 8,
+            maximum_password_length: 100,
+            password_pepper: "abc123abc123".into(),
+            password_argon2id_minimum_memory_kib: 19456,
+            password_argon2id_minimum_iterations: 2,
+            password_argon2id_parallelism: 1,
+            maximum_session_id_generation_retry_count: 10,
+            wiktionary_temporary_data_directory: "wiktionary_data".into(),
+            wiktionary_dump_insertion_batch_size: 1000,
+            wiktionary_update_interval: Duration::hours(24),
+        }
+    }
+
     pub fn build_argon2_parameters(&self) -> RVocResult<argon2::Params> {
         argon2::ParamsBuilder::new()
             .m_cost(self.password_argon2id_minimum_memory_kib)
@@ -298,5 +321,11 @@ where
             value: value.clone(),
             source: Box::new(VarError::NotUnicode(value)),
         }),
+    }
+}
+
+impl AsRef<Configuration> for &'_ Configuration {
+    fn as_ref(&self) -> &Configuration {
+        self
     }
 }

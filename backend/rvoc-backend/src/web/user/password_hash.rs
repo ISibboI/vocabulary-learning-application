@@ -19,6 +19,7 @@ pub struct PasswordHash {
 }
 
 #[must_use]
+#[derive(Debug)]
 pub struct VerifyPasswordResult {
     /// True if the password matches the hash.
     pub matches: bool,
@@ -130,5 +131,33 @@ impl From<String> for PasswordHash {
         Self {
             argon_hash: value.into(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{configuration::Configuration, SecBytes};
+
+    use super::PasswordHash;
+
+    #[test]
+    fn test_password_check() {
+        let configuration = Configuration::test_configuration();
+        let password = SecBytes::from("mypassword");
+        let mut password_hash = PasswordHash::new(password.clone(), &configuration).unwrap();
+        let verify_password_result = password_hash.verify(password.clone(), &configuration);
+        assert!(
+            verify_password_result.is_ok(),
+            "password hash result: {verify_password_result:?}"
+        );
+
+        // convert to string and back
+        let password_hash_string = String::from(password_hash);
+        let mut password_hash = PasswordHash::from(password_hash_string);
+        let verify_password_result = password_hash.verify(password.clone(), &configuration);
+        assert!(
+            verify_password_result.is_ok(),
+            "password hash result: {verify_password_result:?}"
+        );
     }
 }
