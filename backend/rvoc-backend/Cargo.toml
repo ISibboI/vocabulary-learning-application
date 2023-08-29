@@ -13,25 +13,25 @@ path = "src/main.rs"
 
 [dependencies]
 # runtime
-tokio = {version = "1.29.1", features = []}
+tokio = { version = "1.29.1", features = [] }
 async-trait = "0.1.73"
 
 # cli - configuration happens via environment variables,
 #       we only use a cli for manual administrative tasks.
-clap = {version = "4.3.19", features = ["derive"]}
+clap = { version = "4.3.19", features = ["derive"] }
 
 # logging and telemetry
 tracing = "0.1.37"
-tracing-subscriber = {version = "0.3.17", features = ["fmt", "json"]}
-tracing-opentelemetry = {version = "0.20.0"}
-opentelemetry = {version = "0.20.0", features = ["rt-tokio-current-thread"]}
-opentelemetry-otlp = {version = "0.13.0"}
+tracing-subscriber = { version = "0.3.17", features = ["fmt", "json"] }
+tracing-opentelemetry = { version = "0.20.0" }
+opentelemetry = { version = "0.20.0", features = ["rt-tokio-current-thread"] }
+opentelemetry-otlp = { version = "0.13.0" }
 
 # error handling
 thiserror = "1.0.44"
 
 # database
-diesel = {version = "2.1.0", features = ["postgres", "chrono"]}
+diesel = { version = "2.1.0", features = ["postgres", "chrono"] }
 diesel_migrations = "2.1.0"
 diesel-async = { version = "0.3.2", features = ["postgres", "deadpool"] }
 
@@ -45,15 +45,21 @@ strum = { version = "0.25", features = ["derive"] }
 chrono = "0.4.26"
 
 # web
-axum = {version = "0.6.20"}
+axum = { version = "0.6.20" }
 tower = "0.4.13"
+serde = "1.0.186"
 
 # login and secrets
 typed-session = "0.8.0"
 typed-session-axum = "0.2.2"
-password-hash = "0.5.0"
-argon2 = "0.5.1"
+password-hash = { version = "0.5.0", features = ["std"] }
+argon2 = { version = "0.5.1", features = ["std"] }
 rand = "0.8.5"
-secstr = "0.5.1"
+
+# sensitive data handling
+secstr.workspace = true
+
+# web api
+api_commands = { path = "../api_commands" }
 
 [dev-dependencies]

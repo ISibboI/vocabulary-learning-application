@@ -8,6 +8,7 @@ use crate::{configuration::Configuration, error::RVocError};
 use clap::Parser;
 use database::create_async_database_connection_pool;
 use database::migrations::has_missing_migrations;
+use secstr::SecVec;
 use tracing::{debug, info, instrument, Level};
 use tracing_subscriber::filter::FilterFn;
 use tracing_subscriber::Layer;
@@ -19,6 +20,8 @@ mod error;
 mod job_queue;
 mod update_wiktionary;
 mod web;
+
+type SecBytes = SecVec<u8>;
 
 /// Decide how to run the application.
 /// This should only be used internally for code that does not support async,
@@ -47,8 +50,13 @@ fn setup_tracing_subscriber(configuration: &Configuration) -> RVocResult<()> {
         .json()
         .with_span_list(true)
         .with_filter(FilterFn::new(|metadata| {
-            !(metadata.target().starts_with("tokio_util::") && metadata.level() <= &Level::TRACE
-                || metadata.target().starts_with("hyper::") && metadata.level() <= &Level::DEBUG)
+            if metadata.target().starts_with("tokio_util::") {
+                metadata.level() < &Level::TRACE
+            } else if metadata.target().starts_with("hyper::") {
+                metadata.level() < &Level::DEBUG
+            } else {
+                true
+            }
         }));
     let subscriber = Registry::default().with(logging_layer);
 
@@ -92,7 +100,7 @@ fn setup_tracing_subscriber(configuration: &Configuration) -> RVocResult<()> {
 }
 
 #[tokio::main(flavor = "current_thread")]
-pub async fn main() -> RVocResult<()> {
+async fn main() -> RVocResult<()> {
     // Load configuration & CLI
     let configuration = Configuration::from_environment()?;
     let cli = Cli::parse();

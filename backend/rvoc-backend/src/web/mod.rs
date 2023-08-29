@@ -1,6 +1,13 @@
-use std::{convert::Infallible, fmt::Display};
+use std::{convert::Infallible, fmt::Display, sync::Arc};
 
-use axum::{error_handling::HandleErrorLayer, http::StatusCode, routing::get, Extension, Router};
+use axum::{
+    error_handling::HandleErrorLayer,
+    http::StatusCode,
+    middleware,
+    response::IntoResponse,
+    routing::{delete, post},
+    Extension, Router,
+};
 use tower::ServiceBuilder;
 use tracing::{debug, error, info, instrument};
 use typed_session_axum::{SessionLayer, SessionLayerError};
@@ -8,10 +15,15 @@ use typed_session_axum::{SessionLayer, SessionLayerError};
 use crate::{
     configuration::Configuration,
     database::RVocAsyncDatabaseConnectionPool,
-    error::{RVocError, RVocResult},
-    web::session::{RVocSessionData, RVocSessionStoreConnector},
+    error::{RVocError, RVocResult, UserError},
+    web::{
+        authentication::{ensure_logged_in, login, logout},
+        session::{RVocSessionData, RVocSessionStoreConnector},
+        user::{create_account, delete_account},
+    },
 };
 
+mod authentication;
 mod session;
 mod user;
 
@@ -33,7 +45,11 @@ pub async fn run_web_api(
     }
 
     let router = Router::new()
-        .route("/", get(hello_world))
+        .route("/accounts/delete", delete(delete_account))
+        .route("/accounts/logout", post(logout))
+        .layer(middleware::from_fn(ensure_logged_in))
+        .route("/accounts/login", post(login))
+        .route("/accounts/create", post(create_account))
         .layer(
             ServiceBuilder::new()
                 .layer(HandleErrorLayer::new(
@@ -42,9 +58,11 @@ pub async fn run_web_api(
                 .layer(SessionLayer::<RVocSessionData, RVocSessionStoreConnector>::new()),
         )
         .layer(Extension(RVocSessionStoreConnector::new(
-            database_connection_pool,
+            database_connection_pool.clone(),
             configuration,
-        )));
+        )))
+        .layer(Extension(database_connection_pool))
+        .layer(Extension(Arc::new(configuration.clone())));
 
     debug!(
         "Listening for API requests on {}",
@@ -62,8 +80,34 @@ pub async fn run_web_api(
     Ok(())
 }
 
-async fn hello_world() -> &'static str {
-    "Hello World!"
+impl IntoResponse for RVocError {
+    fn into_response(self) -> axum::response::Response {
+        if let RVocError::UserError(user_error) = self {
+            user_error.into_response()
+        } else {
+            error!("Web API error: {self:?}");
+
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        }
+    }
+}
+
+impl IntoResponse for UserError {
+    fn into_response(self) -> axum::response::Response {
+        (self.status_code(), self.to_string()).into_response()
+    }
+}
+
+impl UserError {
+    fn status_code(&self) -> StatusCode {
+        match self {
+            UserError::PasswordLength { .. } => StatusCode::BAD_REQUEST,
+            UserError::UsernameLength { .. } => StatusCode::BAD_REQUEST,
+            UserError::UsernameExists { .. } => StatusCode::CONFLICT,
+            UserError::UsernameDoesNotExist { .. } => StatusCode::BAD_REQUEST,
+            UserError::InvalidUsernamePassword => StatusCode::BAD_REQUEST,
+        }
+    }
 }
 
 async fn shutdown_signal() {
@@ -101,3 +145,6 @@ async fn shutdown_signal() {
         _ = sigterm => info!("Received SIGTERM, shutting down"),
     }
 }
+
+type WebConfiguration = Extension<Arc<Configuration>>;
+type WebDatabaseConnectionPool = Extension<RVocAsyncDatabaseConnectionPool>;

@@ -11,9 +11,13 @@ on:
       - '**/rust-toolchain.toml'
       # Run on changed source files
       - 'backend/rvoc-backend/src/**'
+      - 'backend/api_commands/src/**'
     branches: main
   pull_request:
     branches: main
+  # Sometimes the rules above don't match even though they should.
+  # This allows us to run the workflow manually anyways.
+  workflow_dispatch:
 
 env:
   RUSTFLAGS: "-Dwarnings"
@@ -34,6 +38,24 @@ jobs:
 
       - name: cargo check
         run: cargo check --bins --tests
+
+  rust_format:
+    name: Rust format
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: true
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with: 
+          components: rustfmt
+
+      - name: cargo format
+        uses: actions-rust-lang/rustfmt@v1
 
   rust_lint:
     name: Rust lint
@@ -57,9 +79,10 @@ jobs:
       - name: cargo clippy
         run: cargo clippy --bins --tests
 
-  rust_format:
-    name: Rust format
+  rust_test:
+    name: Rust test
     runs-on: ubuntu-latest
+    needs: ["rust_check", "rust_lint"]
 
     strategy:
       fail-fast: true
@@ -69,8 +92,6 @@ jobs:
 
       - name: Install toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
-        with: 
-          components: rustfmt
 
-      - name: cargo format
-        uses: actions-rust-lang/rustfmt@v1
+      - name: cargo test
+        run: cargo test

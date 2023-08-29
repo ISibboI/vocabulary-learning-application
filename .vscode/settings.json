@@ -7,4 +7,5 @@
     "github-actions.workflows.pinned.workflows": [
         ".github/workflows/rvoc-backend.yml"
     ],
+    "rust-analyzer.cargo.features": [],
 }

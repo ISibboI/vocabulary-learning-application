@@ -16,13 +16,12 @@ impl RVocSyncDatabaseConnection {
         use diesel::Connection;
 
         // create a new connection with the default config
-        let connection = PgConnection::establish(
-            std::str::from_utf8(configuration.postgres_url.unsecure())
-                .expect("postgres_url should be utf8"),
-        )
-        .map_err(|error| RVocError::DatabaseConnection {
-            source: Box::new(error),
-        })?;
+        let connection =
+            PgConnection::establish(configuration.postgres_url.unsecure()).map_err(|error| {
+                RVocError::DatabaseConnection {
+                    source: Box::new(error),
+                }
+            })?;
         Ok(Self {
             implementation: connection,
         })

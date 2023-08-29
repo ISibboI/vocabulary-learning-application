@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use diesel::{Insertable, Queryable, Selectable};
 use thiserror::Error;
-use tracing::debug;
+use tracing::trace;
 use typed_session::{Session, SessionExpiry, SessionId, WriteSessionResult};
 use typed_session_axum::typed_session::SessionStoreConnector;
 
@@ -12,7 +12,7 @@ use crate::{
     error::{BoxDynError, RVocError},
 };
 
-use super::user::Username;
+use super::user::model::Username;
 
 #[derive(Clone)]
 pub struct RVocSessionStoreConnector {
@@ -68,22 +68,8 @@ impl SessionStoreConnector<RVocSessionData> for RVocSessionStoreConnector {
                         .map_err(|error| match error {
                             diesel::result::Error::DatabaseError(
                                 diesel::result::DatabaseErrorKind::UniqueViolation,
-                                database_error_information,
-                            ) => {
-                                if database_error_information.table_name() == Some("sessions")
-                                    && database_error_information.column_name() == Some("id")
-                                {
-                                    TryInsertSessionError::SessionIdExists
-                                } else {
-                                    TryInsertSessionError::Error(
-                                        diesel::result::Error::DatabaseError(
-                                            diesel::result::DatabaseErrorKind::UniqueViolation,
-                                            database_error_information,
-                                        )
-                                        .into(),
-                                    )
-                                }
-                            }
+                                _,
+                            ) => TryInsertSessionError::SessionIdExists,
                             error => TryInsertSessionError::Error(error.into()),
                         })?;
 
@@ -163,10 +149,9 @@ impl SessionStoreConnector<RVocSessionData> for RVocSessionStoreConnector {
                     use diesel::ExpressionMethods;
                     use diesel_async::RunQueryDsl;
 
-                    let deleted_count: i64 = diesel::delete(sessions)
+                    let deleted_count = diesel::delete(sessions)
                         .filter(id.eq(previous_id.as_ref()))
-                        .returning(diesel::dsl::count_star())
-                        .get_result(database_connection)
+                        .execute(database_connection)
                         .await
                         .map_err(|error| TryInsertSessionError::Error(Box::new(error)))?;
 
@@ -182,22 +167,8 @@ impl SessionStoreConnector<RVocSessionData> for RVocSessionStoreConnector {
                         .map_err(|error| match error {
                             diesel::result::Error::DatabaseError(
                                 diesel::result::DatabaseErrorKind::UniqueViolation,
-                                database_error_information,
-                            ) => {
-                                if database_error_information.table_name() == Some("sessions")
-                                    && database_error_information.column_name() == Some("id")
-                                {
-                                    TryInsertSessionError::SessionIdExists
-                                } else {
-                                    TryInsertSessionError::Error(
-                                        diesel::result::Error::DatabaseError(
-                                            diesel::result::DatabaseErrorKind::UniqueViolation,
-                                            database_error_information,
-                                        )
-                                        .into(),
-                                    )
-                                }
-                            }
+                                _,
+                            ) => TryInsertSessionError::SessionIdExists,
                             error => TryInsertSessionError::Error(error.into()),
                         })?;
 
@@ -229,10 +200,9 @@ impl SessionStoreConnector<RVocSessionData> for RVocSessionStoreConnector {
                 use diesel_async::RunQueryDsl;
 
                 Box::pin(async {
-                    let deleted_count: i64 = diesel::delete(sessions)
+                    let deleted_count = diesel::delete(sessions)
                         .filter(id.eq(session_id.as_ref()))
-                        .returning(diesel::dsl::count_star())
-                        .get_result(database_connection)
+                        .execute(database_connection)
                         .await
                         .map_err(|error| RVocError::ReadSession {
                             source: Box::new(error),
@@ -240,7 +210,7 @@ impl SessionStoreConnector<RVocSessionData> for RVocSessionStoreConnector {
 
                     if deleted_count != 1 {
                         assert_eq!(deleted_count, 0);
-                        debug!("Session id that was supposed to be deleted was not found");
+                        trace!("Session id that was supposed to be deleted was not found. This may happen if the account was deleted.");
                     }
 
                     Ok(())

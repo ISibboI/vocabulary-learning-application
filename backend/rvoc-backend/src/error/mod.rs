@@ -44,6 +44,49 @@ pub enum RVocError {
     #[error("error while serving API request: {source}")]
     ApiServerError { source: BoxDynError },
 
+    #[error("{0}")]
+    UserError(
+        #[from]
+        #[source]
+        UserError,
+    ),
+
+    #[error(
+        "the password pepper string's length ({actual}) is out of range: [{minimum}, {maximum}]"
+    )]
+    PasswordPepperLength {
+        actual: usize,
+        minimum: usize,
+        maximum: usize,
+    },
+
+    #[error("the minimum password length is too low: {actual} < {minimum}")]
+    MinimumPasswordLength { actual: usize, minimum: usize },
+
+    #[error("the parameters to the argon password function are wrong: {source}")]
+    PasswordArgon2IdParameters { source: BoxDynError },
+
+    #[error("password hashing went wrong: {source}")]
+    PasswordArgon2IdHash { source: BoxDynError },
+
+    #[error("password verification went wrong: {source}")]
+    PasswordArgon2IdVerify { source: BoxDynError },
+
+    #[error("password rehashing went wrong: {source}")]
+    PasswordArgon2IdRehash { source: BoxDynError },
+
+    #[error("error creating user: {source}")]
+    CreateUser { source: BoxDynError },
+
+    #[error("error deleting user: {source}")]
+    DeleteUser { source: BoxDynError },
+
+    #[error("error deleting all user sessions: {source}")]
+    DeleteAllUserSessions { source: BoxDynError },
+
+    #[error("error logging in: {source}")]
+    Login { source: BoxDynError },
+
     #[error("error while inserting session to database: {source}")]
     InsertSession { source: BoxDynError },
 
@@ -73,6 +116,32 @@ pub enum RVocError {
 
     #[error("could not join tokio task: {source}")]
     TokioTaskJoin { source: BoxDynError },
+}
+
+#[derive(Debug, Error)]
+pub enum UserError {
+    #[error("password length ({actual}) outside of allowed range [{minimum}, {maximum}]")]
+    PasswordLength {
+        actual: usize,
+        minimum: usize,
+        maximum: usize,
+    },
+
+    #[error("username length ({actual}) outside of allowed range [{minimum}, {maximum}]")]
+    UsernameLength {
+        actual: usize,
+        minimum: usize,
+        maximum: usize,
+    },
+
+    #[error("the username already exists: {username}")]
+    UsernameExists { username: String },
+
+    #[error("the username does not exist: {username}")]
+    UsernameDoesNotExist { username: String },
+
+    #[error("the username or password did not match")]
+    InvalidUsernamePassword,
 }
 
 trait RequireSendAndSync: Send + Sync {}

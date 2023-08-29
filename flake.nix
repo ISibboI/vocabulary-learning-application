@@ -27,34 +27,87 @@
           pkgs = import nixpkgs {
             inherit system overlays;
           };
+          inherit (pkgs) lib;
           rustToolchain = pkgs.pkgsBuildHost.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
           craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
-          src = craneLib.cleanCargoSource ./.;
+          src = lib.cleanSourceWith {
+            src = ./.; # The original, unfiltered source
+            filter = path: type:
+              # Allow sql files for migrations
+              (lib.hasSuffix "\.sql" path) ||
+              # Default filter from crane (allow .rs files)
+              (craneLib.filterCargoSources path type)
+            ;
+          };
           nativeBuildInputs = with pkgs; [rustToolchain pkg-config];
-          buildInputs = with pkgs; [rustToolchain openssl];
-          developmentTools = with pkgs; [(diesel-cli.override {sqliteSupport = false; mysqlSupport = false;}) postgresql];
+          buildInputs = with pkgs; [rustToolchain openssl postgresql_15.lib];
+          developmentTools = with pkgs; [(diesel-cli.override {sqliteSupport = false; mysqlSupport = false;}) postgresql cargo];
           commonArgs = {
             inherit src buildInputs nativeBuildInputs;
           };
-          cargoArtifacts = craneLib.buildDepsOnly commonArgs;
-          bin = craneLib.buildPackage(commonArgs // {inherit cargoArtifacts;});
+          integrationTestsArtifacts = craneLib.buildDepsOnly(commonArgs // {
+            cargoBuildCommand = "cargo build --locked --profile dev";
+            cargoExtraArgs = "--bin integration-tests";
+            doCheck = false;
+            pname = "integration-tests";
+          });
+          integrationTestsBinary = craneLib.buildPackage(commonArgs // {
+            inherit integrationTestsArtifacts;
+            cargoBuildCommand = "cargo build --locked --profile dev";
+            cargoExtraArgs = "--bin integration-tests";
+            doCheck = false;
+            pname = "integration-tests";
+          });
+          cargoDebugArtifacts = craneLib.buildDepsOnly(commonArgs // {
+            cargoBuildCommand = "cargo build --locked --profile dev";
+            cargoExtraArgs = "--bin rvoc-backend";
+            doCheck = false;
+            pname = "rvoc-backend";
+          });
+          debugBinary = craneLib.buildPackage(commonArgs // {
+            inherit cargoDebugArtifacts;
+            cargoBuildCommand = "cargo build --locked --profile dev";
+            cargoExtraArgs = "--bin rvoc-backend";
+            doCheck = false;
+            pname = "rvoc-backend";
+          });
+          cargoArtifacts = craneLib.buildDepsOnly(commonArgs // {
+            cargoBuildCommand = "cargo build --locked --profile release";
+            cargoExtraArgs = "--bin rvoc-backend";
+            doCheck = false;
+            pname = "rvoc-backend";
+          });
+          binary = craneLib.buildPackage(commonArgs // {
+            inherit cargoArtifacts;
+            cargoBuildCommand = "cargo build --locked --profile release";
+            cargoExtraArgs = "--bin rvoc-backend";
+            pname = "rvoc-backend";
+          });
           dockerImage = pkgs.dockerTools.streamLayeredImage {
             name = "rvoc-backend";
             tag = "latest";
-            contents = [bin pkgs.cacert];
+            contents = [binary pkgs.cacert];
             config = {
-              Cmd = ["${bin}/bin/rvoc-backend"];
+              Cmd = ["${binary}/bin/rvoc-backend"];
+            };
+          };
+          debugDockerImage = pkgs.dockerTools.streamLayeredImage {
+            name = "rvoc-backend";
+            tag = "latest";
+            contents = [debugBinary pkgs.cacert];
+            config = {
+              Cmd = ["${debugBinary}/bin/rvoc-backend"];
             };
           };
         in
         with pkgs;
         {
           packages = {
-            inherit bin dockerImage;
-            default = bin;
+            inherit binary debugBinary integrationTestsBinary dockerImage debugDockerImage;
+            default = binary;
           };
           devShells.default = mkShell {
-            inputsFrom = [bin];
+            inputsFrom = [binary];
             buildInputs = with pkgs; [dive wget];
             packages = developmentTools;
             shellHook = ''

@@ -14,10 +14,7 @@ impl RVocAsyncDatabaseConnectionPool {
         // create a new connection pool with the default config
         let connection_manager = diesel_async::pooled_connection::AsyncDieselConnectionManager::<
             diesel_async::AsyncPgConnection,
-        >::new(
-            std::str::from_utf8(configuration.postgres_url.unsecure())
-                .expect("postgres_url should be utf8"),
-        );
+        >::new(configuration.postgres_url.unsecure());
         let pool = Pool::builder(connection_manager).build()?;
 
         Ok(Self {

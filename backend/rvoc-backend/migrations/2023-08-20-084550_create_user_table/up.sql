@@ -1,3 +1,3 @@
 CREATE TABLE users (
-	name VARCHAR(50) PRIMARY KEY
+	name TEXT PRIMARY KEY
 );
