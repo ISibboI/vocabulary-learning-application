@@ -154,10 +154,18 @@ impl From<String> for PasswordHash {
     }
 }
 
+impl AsRef<str> for PasswordHash {
+    fn as_ref(&self) -> &str {
+        self.argon_hash.unsecure()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
-        configuration::Configuration, web::user::password_hash::VerifyPasswordResult, SecBytes,
+        configuration::Configuration,
+        web::user::password_hash::{VerifyPasswordResult, HASH_ALGORITHM, HASH_ALGORITHM_VERSION},
+        SecBytes,
     };
 
     use super::PasswordHash;
@@ -165,8 +173,18 @@ mod tests {
     #[test]
     fn test_password_check() {
         let configuration = Configuration::test_configuration();
+
+        println!("Hash algo: {}", HASH_ALGORITHM.ident());
+        println!("Hash algo version: {}", u32::from(HASH_ALGORITHM_VERSION));
+        println!(
+            "Hash algo parameters: {:?}",
+            configuration.build_argon2_parameters().unwrap()
+        );
+
         let password = SecBytes::from("mypassword");
         let mut password_hash = PasswordHash::new(password.clone(), &configuration).unwrap();
+        println!("hash string: {}", password_hash.as_ref());
+
         let verify_password_result = password_hash.verify(password.clone(), &configuration);
         assert!(
             verify_password_result.is_ok(),
