@@ -19,7 +19,7 @@ pub struct PasswordHash {
 }
 
 #[must_use]
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct VerifyPasswordResult {
     /// True if the password matches the hash.
     pub matches: bool,
@@ -136,7 +136,9 @@ impl From<String> for PasswordHash {
 
 #[cfg(test)]
 mod tests {
-    use crate::{configuration::Configuration, SecBytes};
+    use crate::{
+        configuration::Configuration, web::user::password_hash::VerifyPasswordResult, SecBytes,
+    };
 
     use super::PasswordHash;
 
@@ -158,6 +160,13 @@ mod tests {
         assert!(
             verify_password_result.is_ok(),
             "password hash result: {verify_password_result:?}"
+        );
+        assert_eq!(
+            verify_password_result.unwrap(),
+            VerifyPasswordResult {
+                matches: true,
+                modified: false,
+            }
         );
     }
 }
