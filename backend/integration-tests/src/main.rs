@@ -1,5 +1,5 @@
-use anyhow::bail;
-use api_commands::{CreateAccount, Login};
+use anyhow::{bail, Context};
+use api_commands::{CreateAccount, Login, SecBytes};
 use log::{debug, error, info};
 use reqwest::StatusCode;
 use simplelog::TermLogger;
@@ -148,41 +148,53 @@ async fn test_user_account_deletion() -> anyhow::Result<()> {
 
 async fn test_login_logout() -> anyhow::Result<()> {
     let client = HttpClient::new().await?;
+    let password = SecBytes::from("wald😀😀😀😀".to_owned());
+
     let response = client
         .post(
             "/accounts/create",
             CreateAccount {
                 name: "orli".to_owned(),
-                password: "wald😀😀😀😀".to_owned().into(),
+                password: password.clone(),
             },
         )
         .await?;
 
-    assert_response_status(response, StatusCode::CREATED).await?;
+    assert_response_status(response, StatusCode::CREATED)
+        .await
+        .with_context(|| line!())?;
 
     let response = client.post_empty("/accounts/logout").await?;
 
-    assert_response_status(response, StatusCode::UNAUTHORIZED).await?;
+    assert_response_status(response, StatusCode::UNAUTHORIZED)
+        .await
+        .with_context(|| line!())?;
 
     let response = client
         .post(
             "/accounts/login",
             Login {
                 name: "orli".to_owned(),
-                password: "wald😀😀😀😀".to_owned().into(),
+                password: password.clone(),
             },
         )
         .await?;
 
-    assert_response_status(response, StatusCode::NO_CONTENT).await?;
+    assert_response_status(response, StatusCode::NO_CONTENT)
+        .await
+        .with_context(|| line!())?;
 
     let response = client.post_empty("/accounts/logout").await?;
 
-    assert_response_status(response, StatusCode::NO_CONTENT).await?;
+    assert_response_status(response, StatusCode::NO_CONTENT)
+        .await
+        .with_context(|| line!())?;
 
     let response = client.post_empty("/accounts/logout").await?;
 
-    assert_response_status(response, StatusCode::UNAUTHORIZED).await
+    assert_response_status(response, StatusCode::UNAUTHORIZED)
+        .await
+        .with_context(|| line!())
 }
 
 async fn test_wrong_password() -> anyhow::Result<()> {

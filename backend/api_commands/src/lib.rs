@@ -1,6 +1,6 @@
 use secstr::SecVec;
 
-type SecBytes = SecVec<u8>;
+pub type SecBytes = SecVec<u8>;
 
 use serde::{Deserialize, Serialize};
 
