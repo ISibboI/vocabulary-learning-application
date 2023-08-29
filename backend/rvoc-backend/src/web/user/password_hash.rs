@@ -45,16 +45,7 @@ impl PasswordHash {
 
         let salt = SaltString::generate(&mut OsRng);
 
-        let argon2 = Argon2::new_with_secret(
-            configuration.password_pepper.unsecure(),
-            HASH_ALGORITHM,
-            HASH_ALGORITHM_VERSION,
-            // the correctness of the parameters was checked when creating the configuration
-            configuration.build_argon2_parameters()?,
-        )
-        .map_err(|error| RVocError::PasswordArgon2IdParameters {
-            source: Box::new(error),
-        })?;
+        let argon2 = Self::build_argon2(configuration)?;
 
         let argon_hash = argon2
             .hash_password(plaintext_password.unsecure(), &salt)
@@ -72,14 +63,16 @@ impl PasswordHash {
         plaintext_password: SecBytes,
         configuration: impl AsRef<Configuration>,
     ) -> RVocResult<VerifyPasswordResult> {
+        let configuration = configuration.as_ref();
         let parsed_hash = argon2::password_hash::PasswordHash::new(self.argon_hash.unsecure())
             .map_err(|error| RVocError::PasswordArgon2IdVerify {
                 source: Box::new(error),
             })?;
+        let argon2 = Self::build_argon2(configuration)?;
 
-        match Argon2::default().verify_password(plaintext_password.unsecure(), &parsed_hash) {
+        match argon2.verify_password(plaintext_password.unsecure(), &parsed_hash) {
             Ok(()) => {
-                let modified = if self.did_parameters_change(&parsed_hash, &configuration)? {
+                let modified = if self.did_parameters_change(&parsed_hash, configuration)? {
                     *self = Self::new(plaintext_password, configuration)?;
                     true
                 } else {
@@ -117,6 +110,19 @@ impl PasswordHash {
         Ok(algorithm_identifier != HASH_ALGORITHM.ident()
             || algorithm_version != Some(HASH_ALGORITHM_VERSION.into())
             || algorithm_parameters != configuration.as_ref().build_argon2_parameters()?)
+    }
+
+    fn build_argon2(configuration: &Configuration) -> RVocResult<Argon2<'_>> {
+        Argon2::new_with_secret(
+            configuration.password_pepper.unsecure(),
+            HASH_ALGORITHM,
+            HASH_ALGORITHM_VERSION,
+            // the correctness of the parameters was checked when creating the configuration
+            configuration.build_argon2_parameters()?,
+        )
+        .map_err(|error| RVocError::PasswordArgon2IdParameters {
+            source: Box::new(error),
+        })
     }
 }
 
