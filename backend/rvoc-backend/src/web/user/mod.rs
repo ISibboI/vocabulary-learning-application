@@ -2,7 +2,7 @@ use api_commands::CreateAccount;
 use axum::{http::StatusCode, Extension, Json};
 use tracing::instrument;
 
-use crate::error::{RVocError, RVocResult};
+use crate::error::{RVocError, RVocResult, UserError};
 
 use self::{
     model::{User, Username},
@@ -67,20 +67,28 @@ pub async fn delete_account(
     database_connection_pool
         .execute_transaction(|database_connection| {
             Box::pin(async {
-                use crate::database::schema::users::dsl::*;
+                use crate::database::schema::sessions;
+                use crate::database::schema::users;
                 use diesel::ExpressionMethods;
                 use diesel_async::RunQueryDsl;
 
-                match diesel::delete(users)
-                    .filter(name.eq(username.as_ref()))
+                diesel::delete(sessions::table)
+                    .filter(sessions::username.eq(username.as_ref()))
+                    .execute(database_connection)
+                    .await
+                    .map_err(|error| RVocError::DeleteUser {
+                        source: Box::new(error),
+                    })?;
+
+                match diesel::delete(users::table)
+                    .filter(users::name.eq(username.as_ref()))
                     .execute(database_connection)
                     .await
                 {
-                    Ok(0) => Err(RVocError::UserError(
-                        crate::error::UserError::UsernameDoesNotExist {
-                            username: username.into(),
-                        },
-                    )),
+                    Ok(0) => Err(UserError::UsernameDoesNotExist {
+                        username: username.into(),
+                    }
+                    .into()),
                     Ok(1) => Ok(StatusCode::NO_CONTENT),
                     Ok(affected_rows) => {
                         unreachable!("deleted exactly one user, but affected {affected_rows} rows")
