@@ -106,6 +106,7 @@ impl PasswordHash {
         parsed_hash: &argon2::password_hash::PasswordHash<'_>,
         configuration: impl AsRef<Configuration>,
     ) -> RVocResult<bool> {
+        let configuration = configuration.as_ref();
         let algorithm_identifier = parsed_hash.algorithm;
         let algorithm_version = parsed_hash.version;
         let algorithm_parameters = argon2::Params::try_from(parsed_hash).map_err(|error| {
@@ -114,9 +115,13 @@ impl PasswordHash {
             }
         })?;
 
+        let configured_parameters = configuration.build_argon2_parameters()?;
+
         Ok(algorithm_identifier != HASH_ALGORITHM.ident()
             || algorithm_version != Some(HASH_ALGORITHM_VERSION.into())
-            || algorithm_parameters != configuration.as_ref().build_argon2_parameters()?)
+            || algorithm_parameters.m_cost() != configured_parameters.m_cost()
+            || algorithm_parameters.t_cost() != configured_parameters.t_cost()
+            || algorithm_parameters.p_cost() != configured_parameters.p_cost())
     }
 
     fn build_argon2_from_parameters(
