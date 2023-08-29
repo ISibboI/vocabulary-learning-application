@@ -149,10 +149,9 @@ impl SessionStoreConnector<RVocSessionData> for RVocSessionStoreConnector {
                     use diesel::ExpressionMethods;
                     use diesel_async::RunQueryDsl;
 
-                    let deleted_count: i64 = diesel::delete(sessions)
+                    let deleted_count = diesel::delete(sessions)
                         .filter(id.eq(previous_id.as_ref()))
-                        .returning(diesel::dsl::count_star())
-                        .get_result(database_connection)
+                        .execute(database_connection)
                         .await
                         .map_err(|error| TryInsertSessionError::Error(Box::new(error)))?;
 
@@ -201,10 +200,9 @@ impl SessionStoreConnector<RVocSessionData> for RVocSessionStoreConnector {
                 use diesel_async::RunQueryDsl;
 
                 Box::pin(async {
-                    let deleted_count: i64 = diesel::delete(sessions)
+                    let deleted_count = diesel::delete(sessions)
                         .filter(id.eq(session_id.as_ref()))
-                        .returning(diesel::dsl::count_star())
-                        .get_result(database_connection)
+                        .execute(database_connection)
                         .await
                         .map_err(|error| RVocError::ReadSession {
                             source: Box::new(error),
