@@ -42,6 +42,9 @@ pub async fn login(
     mut session: WritableSession<RVocSessionData>,
     Json(login): Json<Login>,
 ) -> RVocResult<StatusCode> {
+    // any failed login attempt should cause a logout
+    *session.data_mut() = RVocSessionData::Anonymous;
+
     configuration.verify_username_length(&login.name)?;
     configuration.verify_password_length(&login.password)?;
 
@@ -74,7 +77,6 @@ pub async fn login(
                 let verify_result = password_hash.verify(login.password, configuration)?;
 
                 if !verify_result.matches {
-                    *session.data_mut() = RVocSessionData::Anonymous;
                     info!("Wrong password for user: {:?}", login.name);
                     return Err(UserError::InvalidUsernamePassword.into());
                 }
