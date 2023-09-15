@@ -49,7 +49,7 @@ async fn initialise_job_queue(
     info!("Initialising job queue");
 
     database_connection_pool
-        .execute_transaction_with_retries::<_, RVocError>(
+        .execute_transaction::<_, RVocError>(
             |database_connection| {
                 Box::pin(async move {
                     use crate::database::schema::job_queue::dsl::*;
@@ -133,7 +133,7 @@ async fn reserve_job(
     configuration: &Configuration,
 ) -> RVocResult<Option<InProgressJob>> {
     database_connection_pool
-        .execute_transaction_with_retries::<_, RVocError>(
+        .execute_transaction::<_, RVocError>(
             |database_connection| {
                 Box::pin(async move {
                     use crate::database::schema::job_queue::dsl::*;
@@ -241,7 +241,7 @@ async fn complete_job(
     );
 
     database_connection_pool
-        .execute_transaction_with_retries::<_, RVocError>(
+        .execute_transaction::<_, RVocError>(
             |database_connection| {
                 Box::pin(async move {
                     use crate::database::schema::job_queue::dsl::*;

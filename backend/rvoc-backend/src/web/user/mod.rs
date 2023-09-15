@@ -33,7 +33,7 @@ pub async fn create_account(
     };
 
     database_connection_pool
-        .execute_transaction::<_, RVocError>(|database_connection| {
+        .execute_transaction_without_retries::<_, RVocError>(|database_connection| {
             Box::pin(async {
                 use crate::database::schema::users::dsl::*;
                 use diesel_async::RunQueryDsl;
@@ -72,7 +72,7 @@ pub async fn delete_account(
     session.delete();
 
     database_connection_pool
-        .execute_transaction(|database_connection| {
+        .execute_transaction_without_retries(|database_connection| {
             Box::pin(async {
                 use crate::database::schema::sessions;
                 use crate::database::schema::users;

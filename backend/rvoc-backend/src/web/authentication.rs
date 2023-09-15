@@ -49,7 +49,7 @@ pub async fn login(
     configuration.verify_password_length(&login.password)?;
 
     database_connection_pool
-        .execute_transaction(|database_connection| {
+        .execute_transaction_without_retries(|database_connection| {
             Box::pin(async {
                 use crate::database::schema::users;
                 use diesel::ExpressionMethods;

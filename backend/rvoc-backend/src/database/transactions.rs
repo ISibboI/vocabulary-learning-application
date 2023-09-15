@@ -15,7 +15,7 @@ impl RVocAsyncDatabaseConnectionPool {
     ///
     /// If `max_retries` temporary errors have occurred, then [`PermanentError::too_many_temporary_errors`] is returned.
     #[instrument(err, skip(self, transaction))]
-    pub async fn execute_transaction_with_retries<
+    pub async fn execute_transaction<
         'b,
         ReturnType: 'b + Send,
         PermanentErrorType: PermanentTransactionError + TooManyTemporaryTransactionErrors,
@@ -47,6 +47,14 @@ impl RVocAsyncDatabaseConnectionPool {
                 Err(TransactionError::Temporary(error)) => {
                     debug!("temporary transaction error: {error}")
                 }
+                Err(TransactionError::Diesel(
+                    error @ diesel::result::Error::DatabaseError(
+                        diesel::result::DatabaseErrorKind::SerializationFailure,
+                        _,
+                    ),
+                )) => {
+                    debug!("temporary transaction error: {error}")
+                }
                 Err(TransactionError::Permanent(error)) => {
                     return Err(PermanentErrorType::permanent_error(error))
                 }
@@ -61,7 +69,10 @@ impl RVocAsyncDatabaseConnectionPool {
 
     /// Execute an asynchronous database transaction.
     #[instrument(err, skip(self, transaction))]
-    pub async fn execute_transaction<
+    #[deprecated(
+        note = "postgres transactions may fail randomly because of some optimisations in postgres"
+    )]
+    pub async fn execute_transaction_without_retries<
         'b,
         ReturnType: 'b + Send,
         ErrorType: 'b + Send + PermanentTransactionError,
@@ -107,7 +118,7 @@ impl RVocSyncDatabaseConnection {
     ///
     /// If `max_retries` temporary errors have occurred, then [`PermanentError::too_many_temporary_errors`] is returned.
     #[allow(dead_code)]
-    pub fn execute_sync_transaction_with_retries<
+    pub fn execute_transaction<
         ReturnType,
         PermanentErrorType: PermanentTransactionError + TooManyTemporaryTransactionErrors,
     >(
@@ -124,6 +135,14 @@ impl RVocSyncDatabaseConnection {
             {
                 Ok(result) => return Ok(result),
                 Err(TransactionError::Temporary(error)) => {
+                    debug!("temporary transaction error: {error}")
+                }
+                Err(TransactionError::Diesel(
+                    error @ diesel::result::Error::DatabaseError(
+                        diesel::result::DatabaseErrorKind::SerializationFailure,
+                        _,
+                    ),
+                )) => {
                     debug!("temporary transaction error: {error}")
                 }
                 Err(TransactionError::Permanent(error)) => {

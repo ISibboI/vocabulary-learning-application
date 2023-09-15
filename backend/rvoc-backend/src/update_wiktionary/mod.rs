@@ -79,7 +79,7 @@ async fn insert_word_buffer(
     );
 
     database_connection_pool
-        .execute_transaction_with_retries::<_, RVocError>(
+        .execute_transaction::<_, RVocError>(
             |database_connection| {
                 use crate::database::schema::*;
                 use diesel::ExpressionMethods;
