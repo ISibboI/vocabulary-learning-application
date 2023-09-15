@@ -49,62 +49,68 @@ pub async fn login(
     configuration.verify_password_length(&login.password)?;
 
     database_connection_pool
-        .execute_transaction_without_retries(|database_connection| {
-            Box::pin(async {
-                use crate::database::schema::users;
-                use diesel::ExpressionMethods;
-                use diesel::OptionalExtension;
-                use diesel_async::RunQueryDsl;
+        .execute_transaction::<_, RVocError>(
+            |database_connection| {
+                Box::pin(async {
+                    use crate::database::schema::users;
+                    use diesel::ExpressionMethods;
+                    use diesel::OptionalExtension;
+                    use diesel_async::RunQueryDsl;
 
-                // get password hash
-                let password_hash: String = if let Some(password_hash) = users::table
-                    .select(users::password_hash)
-                    .filter(users::name.eq(&login.name))
-                    .first(database_connection)
-                    .await
-                    .optional()
-                    .map_err(|error| RVocError::Login {
-                        source: Box::new(error),
-                    })? {
-                    password_hash
-                } else {
-                    info!("User not found: {:?}", login.name);
-                    return Err(UserError::InvalidUsernamePassword.into());
-                };
+                    let configuration = configuration.clone();
 
-                // verify password hash
-                let mut password_hash = PasswordHash::from(password_hash);
-                let verify_result = password_hash.verify(login.password, configuration)?;
-
-                if !verify_result.matches {
-                    info!("Wrong password for user: {:?}", login.name);
-                    return Err(UserError::InvalidUsernamePassword.into());
-                }
-
-                // update password hash if modified
-                if verify_result.modified {
-                    let affected_rows = diesel::update(users::table)
+                    // get password hash
+                    let password_hash: String = if let Some(password_hash) = users::table
+                        .select(users::password_hash)
                         .filter(users::name.eq(&login.name))
-                        .set(users::password_hash.eq(String::from(password_hash)))
-                        .execute(database_connection)
+                        .first(database_connection)
                         .await
-                        .map_err(|error| RVocError::Login {
-                            source: Box::new(error),
-                        })?;
+                        .optional()?
+                    {
+                        password_hash
+                    } else {
+                        info!("User not found: {:?}", login.name);
+                        return Err(UserError::InvalidUsernamePassword.into());
+                    };
 
-                    if affected_rows != 1 {
-                        unreachable!(
+                    // verify password hash
+                    let mut password_hash = PasswordHash::from(password_hash);
+                    let verify_result =
+                        password_hash.verify(login.password.clone(), configuration)?;
+
+                    if !verify_result.matches {
+                        info!("Wrong password for user: {:?}", login.name);
+                        return Err(UserError::InvalidUsernamePassword.into());
+                    }
+
+                    // update password hash if modified
+                    if verify_result.modified {
+                        let affected_rows = diesel::update(users::table)
+                            .filter(users::name.eq(&login.name))
+                            .set(users::password_hash.eq(String::from(password_hash)))
+                            .execute(database_connection)
+                            .await?;
+
+                        if affected_rows != 1 {
+                            unreachable!(
                             "Updated exactly one existing row, but {affected_rows} were affected"
                         );
+                        }
                     }
-                }
 
-                *session.data_mut() = RVocSessionData::LoggedIn(Username::new(login.name));
-
-                Ok(StatusCode::NO_CONTENT)
-            })
-        })
+                    Ok(())
+                })
+            },
+            configuration.maximum_transaction_retry_count,
+        )
         .await
+        .map_err(|error| RVocError::Login {
+            source: Box::new(error),
+        })?;
+
+    *session.data_mut() = RVocSessionData::LoggedIn(Username::new(login.name.clone()));
+
+    Ok(StatusCode::NO_CONTENT)
 }
 
 #[instrument(err)]

@@ -8,7 +8,12 @@ use typed_session_axum::typed_session::SessionStoreConnector;
 
 use crate::{
     configuration::Configuration,
-    database::{transactions::PermanentTransactionError, RVocAsyncDatabaseConnectionPool},
+    database::{
+        transactions::{
+            PermanentTransactionError, TooManyTemporaryTransactionErrors, TransactionError,
+        },
+        RVocAsyncDatabaseConnectionPool,
+    },
     error::{BoxDynError, RVocError},
 };
 
@@ -18,6 +23,7 @@ use super::user::model::Username;
 pub struct RVocSessionStoreConnector {
     database_connection_pool: RVocAsyncDatabaseConnectionPool,
     maximum_retries_on_id_collision: u32,
+    maximum_transaction_retry_count: u64,
 }
 
 #[derive(Default, Debug)]
@@ -36,6 +42,7 @@ impl RVocSessionStoreConnector {
             database_connection_pool,
             maximum_retries_on_id_collision: configuration
                 .maximum_session_id_generation_retry_count,
+            maximum_transaction_retry_count: configuration.maximum_transaction_retry_count,
         }
     }
 }
@@ -56,7 +63,7 @@ impl SessionStoreConnector<RVocSessionData> for RVocSessionStoreConnector {
     ) -> Result<WriteSessionResult, typed_session::Error<Self::Error>> {
         match self
             .database_connection_pool
-            .execute_transaction_without_retries::<_, TryInsertSessionError>(
+            .execute_transaction::<_, TryInsertSessionError>(
                 |database_connection| {
                     Box::pin(async {
                         use crate::database::schema::sessions::dsl::*;
@@ -70,20 +77,28 @@ impl SessionStoreConnector<RVocSessionData> for RVocSessionStoreConnector {
                                 diesel::result::Error::DatabaseError(
                                     diesel::result::DatabaseErrorKind::UniqueViolation,
                                     _,
-                                ) => TryInsertSessionError::SessionIdExists,
-                                error => TryInsertSessionError::Error(error.into()),
+                                ) => TransactionError::Permanent(
+                                    TryInsertSessionError::SessionIdExists,
+                                ),
+                                error => error.into(),
                             })?;
 
                         Ok(())
                     })
                 },
+                self.maximum_transaction_retry_count,
             )
             .await
         {
             Ok(()) => Ok(WriteSessionResult::Ok(())),
             Err(TryInsertSessionError::SessionIdExists) => Ok(WriteSessionResult::SessionIdExists),
-            Err(TryInsertSessionError::Error(error)) => {
+            Err(TryInsertSessionError::PermanentTransactionError(error)) => {
                 Err(RVocError::InsertSession { source: error })
+            }
+            Err(error @ TryInsertSessionError::TooManyTemporaryTransactionErrors { .. }) => {
+                Err(RVocError::InsertSession {
+                    source: Box::new(error),
+                })
             }
             Err(TryInsertSessionError::PreviousSessionIdDoesNotExist) => unreachable!(),
         }
@@ -96,27 +111,32 @@ impl SessionStoreConnector<RVocSessionData> for RVocSessionStoreConnector {
     ) -> Result<Option<Session<RVocSessionData>>, typed_session::Error<Self::Error>> {
         if let Some(queryable) = self
             .database_connection_pool
-            .execute_transaction_without_retries(|database_connection| {
-                use crate::database::schema::sessions::dsl::*;
-                use diesel::OptionalExtension;
-                use diesel::QueryDsl;
-                use diesel::SelectableHelper;
-                use diesel_async::RunQueryDsl;
+            .execute_transaction::<_, RVocError>(
+                |database_connection| {
+                    use crate::database::schema::sessions::dsl::*;
+                    use diesel::OptionalExtension;
+                    use diesel::QueryDsl;
+                    use diesel::SelectableHelper;
+                    use diesel_async::RunQueryDsl;
 
-                Box::pin(async {
-                    sessions
-                        .find(session_id.as_ref())
-                        .select(RVocSessionQueryable::as_select())
-                        .first(database_connection)
-                        .await
-                        .optional()
-                        .map_err(|error| RVocError::ReadSession {
-                            source: Box::new(error),
-                        })
-                })
-            })
+                    Box::pin(async {
+                        sessions
+                            .find(session_id.as_ref())
+                            .select(RVocSessionQueryable::as_select())
+                            .first(database_connection)
+                            .await
+                            .optional()
+                            .map_err(TransactionError::from)
+                    })
+                },
+                self.maximum_transaction_retry_count,
+            )
             .await
-            .map_err(typed_session::Error::SessionStoreConnector)?
+            .map_err(|error| {
+                typed_session::Error::SessionStoreConnector(RVocError::ReadSession {
+                    source: Box::new(error),
+                })
+            })?
         {
             let expiry = if queryable.expiry == DateTime::<Utc>::MAX_UTC {
                 SessionExpiry::Never
@@ -145,7 +165,7 @@ impl SessionStoreConnector<RVocSessionData> for RVocSessionStoreConnector {
     ) -> Result<WriteSessionResult, typed_session::Error<Self::Error>> {
         match self
             .database_connection_pool
-            .execute_transaction_without_retries::<_, TryInsertSessionError>(
+            .execute_transaction::<_, TryInsertSessionError>(
                 |database_connection| {
                     Box::pin(async {
                         use crate::database::schema::sessions::dsl::*;
@@ -155,12 +175,13 @@ impl SessionStoreConnector<RVocSessionData> for RVocSessionStoreConnector {
                         let deleted_count = diesel::delete(sessions)
                             .filter(id.eq(previous_id.as_ref()))
                             .execute(database_connection)
-                            .await
-                            .map_err(|error| TryInsertSessionError::Error(Box::new(error)))?;
+                            .await?;
 
                         if deleted_count != 1 {
                             assert_eq!(deleted_count, 0);
-                            return Err(TryInsertSessionError::PreviousSessionIdDoesNotExist);
+                            return Err(TransactionError::Permanent(
+                                TryInsertSessionError::PreviousSessionIdDoesNotExist,
+                            ));
                         }
 
                         RVocSessionInsertable::new(current_id, session_expiry, data)
@@ -171,13 +192,16 @@ impl SessionStoreConnector<RVocSessionData> for RVocSessionStoreConnector {
                                 diesel::result::Error::DatabaseError(
                                     diesel::result::DatabaseErrorKind::UniqueViolation,
                                     _,
-                                ) => TryInsertSessionError::SessionIdExists,
-                                error => TryInsertSessionError::Error(error.into()),
+                                ) => TransactionError::Permanent(
+                                    TryInsertSessionError::SessionIdExists,
+                                ),
+                                error => error.into(),
                             })?;
 
                         Ok(())
                     })
                 },
+                self.maximum_transaction_retry_count,
             )
             .await
         {
@@ -186,9 +210,15 @@ impl SessionStoreConnector<RVocSessionData> for RVocSessionStoreConnector {
             Err(TryInsertSessionError::PreviousSessionIdDoesNotExist) => {
                 Err(typed_session::Error::UpdatedSessionDoesNotExist)
             }
-            Err(TryInsertSessionError::Error(error)) => {
-                Err(RVocError::InsertSession { source: error })
+            Err(TryInsertSessionError::PermanentTransactionError(error)) => {
+                Err(RVocError::UpdateSession { source: error })
                     .map_err(typed_session::Error::SessionStoreConnector)
+            }
+            Err(error @ TryInsertSessionError::TooManyTemporaryTransactionErrors { .. }) => {
+                Err(RVocError::UpdateSession {
+                    source: Box::new(error),
+                })
+                .map_err(typed_session::Error::SessionStoreConnector)
             }
         }
     }
@@ -198,7 +228,7 @@ impl SessionStoreConnector<RVocSessionData> for RVocSessionStoreConnector {
         session_id: &SessionId,
     ) -> Result<(), typed_session::Error<Self::Error>> {
         self.database_connection_pool
-            .execute_transaction_without_retries(|database_connection| {
+            .execute_transaction::<_, RVocError>(|database_connection| {
                 use crate::database::schema::sessions::dsl::*;
                 use diesel::ExpressionMethods;
                 use diesel_async::RunQueryDsl;
@@ -207,10 +237,7 @@ impl SessionStoreConnector<RVocSessionData> for RVocSessionStoreConnector {
                     let deleted_count = diesel::delete(sessions)
                         .filter(id.eq(session_id.as_ref()))
                         .execute(database_connection)
-                        .await
-                        .map_err(|error| RVocError::ReadSession {
-                            source: Box::new(error),
-                        })?;
+                        .await?;
 
                     if deleted_count != 1 {
                         assert_eq!(deleted_count, 0);
@@ -219,29 +246,34 @@ impl SessionStoreConnector<RVocSessionData> for RVocSessionStoreConnector {
 
                     Ok(())
                 })
-            })
+            }, self.maximum_transaction_retry_count)
             .await
-            .map_err(typed_session::Error::SessionStoreConnector)
+            .map_err(|error|typed_session::Error::SessionStoreConnector(RVocError::DeleteSession {source: Box::new(error)}))
     }
 
     async fn clear(&mut self) -> Result<(), typed_session::Error<Self::Error>> {
         self.database_connection_pool
-            .execute_transaction_without_retries(|database_connection| {
-                use crate::database::schema::sessions::dsl::*;
-                use diesel_async::RunQueryDsl;
+            .execute_transaction::<_, RVocError>(
+                |database_connection| {
+                    use crate::database::schema::sessions::dsl::*;
+                    use diesel_async::RunQueryDsl;
 
-                Box::pin(async {
-                    diesel::delete(sessions)
-                        .execute(database_connection)
-                        .await
-                        .map_err(|error| RVocError::ReadSession {
-                            source: Box::new(error),
-                        })
-                })
-            })
+                    Box::pin(async {
+                        diesel::delete(sessions)
+                            .execute(database_connection)
+                            .await
+                            .map_err(Into::into)
+                    })
+                },
+                self.maximum_transaction_retry_count,
+            )
             .await
             .map(|_| ())
-            .map_err(typed_session::Error::SessionStoreConnector)
+            .map_err(|error| {
+                typed_session::Error::SessionStoreConnector(RVocError::DeleteAllSessions {
+                    source: Box::new(error),
+                })
+            })
     }
 }
 
@@ -282,7 +314,9 @@ struct RVocSessionQueryable {
 #[derive(Debug, Error)]
 enum TryInsertSessionError {
     #[error("permanent transaction error: {0}")]
-    Error(BoxDynError),
+    PermanentTransactionError(BoxDynError),
+    #[error("too many temporary transaction errors: {limit}")]
+    TooManyTemporaryTransactionErrors { limit: u64 },
     #[error("session id exists")]
     SessionIdExists,
     #[error("previous session id does not exist")]
@@ -291,6 +325,12 @@ enum TryInsertSessionError {
 
 impl PermanentTransactionError for TryInsertSessionError {
     fn permanent_error(source: crate::error::BoxDynError) -> Self {
-        Self::Error(source)
+        Self::PermanentTransactionError(source)
+    }
+}
+
+impl TooManyTemporaryTransactionErrors for TryInsertSessionError {
+    fn too_many_temporary_errors(limit: u64) -> Self {
+        Self::TooManyTemporaryTransactionErrors { limit }
     }
 }

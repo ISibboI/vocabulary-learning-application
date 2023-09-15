@@ -87,11 +87,20 @@ pub enum RVocError {
     #[error("error logging in: {source}")]
     Login { source: BoxDynError },
 
-    #[error("error while inserting session to database: {source}")]
+    #[error("error while inserting a session to the database: {source}")]
     InsertSession { source: BoxDynError },
 
-    #[error("error while reading the session from the database: {source}")]
+    #[error("error while reading a session from the database: {source}")]
     ReadSession { source: BoxDynError },
+
+    #[error("error while updating a session in the database: {source}")]
+    UpdateSession { source: BoxDynError },
+
+    #[error("error while removing a session from the database: {source}")]
+    DeleteSession { source: BoxDynError },
+
+    #[error("error while removing all sessiona from the database: {source}")]
+    DeleteAllSessions { source: BoxDynError },
 
     #[error("data directory should be a directory, but is a file: {path:?}")]
     DataDirectoryIsFile { path: PathBuf },

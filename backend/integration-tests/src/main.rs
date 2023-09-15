@@ -43,7 +43,10 @@ async fn main() -> anyhow::Result<()> {
     let mut results = Vec::new();
     for task in tasks {
         let result = task.await;
-        let Ok(result) = result else { error!("{result:?}"); continue; };
+        let Ok(result) = result else {
+            error!("{result:?}");
+            continue;
+        };
         results.push(result);
     }
 

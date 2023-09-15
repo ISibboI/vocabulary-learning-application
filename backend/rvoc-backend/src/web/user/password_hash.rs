@@ -13,7 +13,7 @@ use crate::{
 static HASH_ALGORITHM: argon2::Algorithm = argon2::Algorithm::Argon2id;
 static HASH_ALGORITHM_VERSION: argon2::Version = argon2::Version::V0x13;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct PasswordHash {
     argon_hash: SecUtf8,
 }

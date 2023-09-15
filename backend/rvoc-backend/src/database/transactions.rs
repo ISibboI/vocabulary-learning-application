@@ -4,7 +4,7 @@ use diesel::PgConnection;
 use diesel_async::AsyncPgConnection;
 use tracing::{debug, instrument};
 
-use crate::error::{BoxDynError, RVocError};
+use crate::error::{BoxDynError, RVocError, UserError};
 
 use super::{RVocAsyncDatabaseConnectionPool, RVocSyncDatabaseConnection};
 
@@ -18,7 +18,7 @@ impl RVocAsyncDatabaseConnectionPool {
     pub async fn execute_transaction<
         'b,
         ReturnType: 'b + Send,
-        PermanentErrorType: PermanentTransactionError + TooManyTemporaryTransactionErrors,
+        PermanentErrorType: 'b + PermanentTransactionError + TooManyTemporaryTransactionErrors,
     >(
         &self,
         transaction: impl for<'r> Fn(
@@ -26,7 +26,7 @@ impl RVocAsyncDatabaseConnectionPool {
             ) -> diesel_async::scoped_futures::ScopedBoxFuture<
                 'b,
                 'r,
-                Result<ReturnType, TransactionError>,
+                Result<ReturnType, TransactionError<PermanentErrorType>>,
             > + Sync,
         max_retries: u64,
     ) -> Result<ReturnType, PermanentErrorType> {
@@ -55,9 +55,7 @@ impl RVocAsyncDatabaseConnectionPool {
                 )) => {
                     debug!("temporary transaction error: {error}")
                 }
-                Err(TransactionError::Permanent(error)) => {
-                    return Err(PermanentErrorType::permanent_error(error))
-                }
+                Err(TransactionError::Permanent(error)) => return Err(error),
                 Err(TransactionError::Diesel(error)) => {
                     return Err(PermanentErrorType::permanent_error(Box::new(error)))
                 }
@@ -67,11 +65,12 @@ impl RVocAsyncDatabaseConnectionPool {
         Err(PermanentErrorType::too_many_temporary_errors(max_retries))
     }
 
-    /// Execute an asynchronous database transaction.
+    /// Execute an asynchronous database transactio without retries.
     #[instrument(err, skip(self, transaction))]
     #[deprecated(
         note = "postgres transactions may fail randomly because of some optimisations in postgres"
     )]
+    #[allow(dead_code)]
     pub async fn execute_transaction_without_retries<
         'b,
         ReturnType: 'b + Send,
@@ -123,7 +122,9 @@ impl RVocSyncDatabaseConnection {
         PermanentErrorType: PermanentTransactionError + TooManyTemporaryTransactionErrors,
     >(
         &mut self,
-        transaction: impl Fn(&mut PgConnection) -> Result<ReturnType, TransactionError>,
+        transaction: impl Fn(
+            &mut PgConnection,
+        ) -> Result<ReturnType, TransactionError<PermanentErrorType>>,
         max_retries: u64,
     ) -> Result<ReturnType, PermanentErrorType> {
         for _ in 0..max_retries.saturating_add(1) {
@@ -145,9 +146,7 @@ impl RVocSyncDatabaseConnection {
                 )) => {
                     debug!("temporary transaction error: {error}")
                 }
-                Err(TransactionError::Permanent(error)) => {
-                    return Err(PermanentErrorType::permanent_error(error))
-                }
+                Err(TransactionError::Permanent(error)) => return Err(error),
                 Err(TransactionError::Diesel(error)) => {
                     return Err(PermanentErrorType::permanent_error(Box::new(error)))
                 }
@@ -158,25 +157,31 @@ impl RVocSyncDatabaseConnection {
     }
 }
 
-pub enum TransactionError {
+pub enum TransactionError<PermanentErrorType> {
     /// The transaction was unable to complete, but should be retried.
     #[allow(unused)]
     Temporary(BoxDynError),
     /// The transaction was unable to complete and should not be retried.
-    Permanent(BoxDynError),
+    Permanent(PermanentErrorType),
     /// A database error.
     Diesel(diesel::result::Error),
 }
 
-impl From<BoxDynError> for TransactionError {
-    fn from(value: BoxDynError) -> Self {
+impl<PermanentErrorType> From<diesel::result::Error> for TransactionError<PermanentErrorType> {
+    fn from(value: diesel::result::Error) -> Self {
+        Self::Diesel(value)
+    }
+}
+
+impl From<RVocError> for TransactionError<RVocError> {
+    fn from(value: RVocError) -> Self {
         Self::Permanent(value)
     }
 }
 
-impl From<diesel::result::Error> for TransactionError {
-    fn from(value: diesel::result::Error) -> Self {
-        Self::Diesel(value)
+impl From<UserError> for TransactionError<RVocError> {
+    fn from(value: UserError) -> Self {
+        Self::Permanent(value.into())
     }
 }
 

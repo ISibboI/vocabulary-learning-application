@@ -2,7 +2,7 @@ use diesel::prelude::Insertable;
 
 use super::password_hash::PasswordHash;
 
-#[derive(Insertable)]
+#[derive(Insertable, Clone, Debug)]
 #[diesel(table_name = crate::database::schema::users)]
 #[diesel(primary_key(name))]
 #[diesel(check_for_backend(diesel::pg::Pg))]
