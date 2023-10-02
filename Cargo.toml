@@ -5,6 +5,10 @@ members = [
     "backend/api_commands",
 ]
 
+# Prevent crane from rebuilding dependencies unnecessarily (https://github.com/ipetkov/crane/issues/370)
+[profile.dev.build-override]
+debug = false
+
 [workspace.package]
 version = "0.0.1"
 edition = "2021"
