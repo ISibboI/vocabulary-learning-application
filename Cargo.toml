@@ -4,6 +4,7 @@ members = [
     "backend/integration-tests",
     "backend/api_commands",
 ]
+resolver = "2"
 
 # Prevent crane from rebuilding dependencies unnecessarily (https://github.com/ipetkov/crane/issues/370)
 [profile.dev.build-override]
