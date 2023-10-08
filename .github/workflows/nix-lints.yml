@@ -49,5 +49,5 @@ jobs:
         path: /nix/store
         key: ${{ runner.os }}-${{ hashFiles('flake.*') }}-${{ hashFiles('.github/workflows/web-api-ci.yml') }}
 
-    - name: Check dead nix code
-      run: nix run github:astro/deadnix -- .
+    - name: Check for dead nix code
+      run: nix run github:astro/deadnix -- --fail .
