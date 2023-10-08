@@ -93,8 +93,8 @@ pub async fn login(
 
                         if affected_rows != 1 {
                             unreachable!(
-                            "Updated exactly one existing row, but {affected_rows} were affected"
-                        );
+                                "Updated exactly one existing row, but {affected_rows} were affected"
+                            );
                         }
                     }
 
