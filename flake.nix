@@ -44,42 +44,44 @@
           developmentTools = with pkgs; [(diesel-cli.override {sqliteSupport = false; mysqlSupport = false;}) postgresql cargo];
           commonArgs = {
             inherit src buildInputs nativeBuildInputs;
+            installCargoArtifactsMode = "use-zstd";
+            strictDeps = true;
           };
           integrationTestsArtifacts = craneLib.buildDepsOnly(commonArgs // {
-            cargoBuildCommand = "cargo build --locked --profile dev";
+            cargoBuildCommand = "cargo build --profile dev";
             cargoExtraArgs = "--bin integration-tests";
             doCheck = false;
             pname = "integration-tests";
           });
           integrationTestsBinary = craneLib.buildPackage(commonArgs // {
-            inherit integrationTestsArtifacts;
-            cargoBuildCommand = "cargo build --locked --profile dev";
+            cargoArtifacts = integrationTestsArtifacts;
+            cargoBuildCommand = "cargo build --profile dev";
             cargoExtraArgs = "--bin integration-tests";
             doCheck = false;
             pname = "integration-tests";
           });
           cargoDebugArtifacts = craneLib.buildDepsOnly(commonArgs // {
-            cargoBuildCommand = "cargo build --locked --profile dev";
+            cargoBuildCommand = "cargo build --profile dev";
             cargoExtraArgs = "--bin rvoc-backend";
             doCheck = false;
             pname = "rvoc-backend";
           });
           debugBinary = craneLib.buildPackage(commonArgs // {
-            inherit cargoDebugArtifacts;
-            cargoBuildCommand = "cargo build --locked --profile dev";
+            cargoArtifacts = cargoDebugArtifacts;
+            cargoBuildCommand = "cargo buildd --profile dev";
             cargoExtraArgs = "--bin rvoc-backend";
             doCheck = false;
             pname = "rvoc-backend";
           });
           cargoArtifacts = craneLib.buildDepsOnly(commonArgs // {
-            cargoBuildCommand = "cargo build --locked --profile release";
+            cargoBuildCommand = "cargo build --profile release";
             cargoExtraArgs = "--bin rvoc-backend";
             doCheck = false;
             pname = "rvoc-backend";
           });
           binary = craneLib.buildPackage(commonArgs // {
-            inherit cargoArtifacts;
-            cargoBuildCommand = "cargo build --locked --profile release";
+            cargoArtifacts = cargoArtifacts;
+            cargoBuildCommand = "cargo build --profile release";
             cargoExtraArgs = "--bin rvoc-backend";
             pname = "rvoc-backend";
           });
