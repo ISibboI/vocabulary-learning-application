@@ -18,17 +18,14 @@ on:
       - 'flake.lock'
     branches: 
       - main
-      # We are creating this workflow on this branch, hence we enable it here.
-      # This can be deleted once the branch is removed.
-      - 42-add-user-account-creation
   pull_request:
     branches: main
-  # Sometimes the rules above don't match even though they should.
-  # This allows us to run the workflow manually anyways.
+  # Run manually
   workflow_dispatch:
 
 jobs:
   run_integration_tests:
+    name: Backend integration tests
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
