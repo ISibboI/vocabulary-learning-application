@@ -18,7 +18,7 @@
       };
     };
   };
-  outputs = { nixpkgs, flake-utils, rust-overlay, crane }:
+  outputs = { self, nixpkgs, flake-utils, rust-overlay, crane }:
     let
       system = "x86_64-linux";
       overlays = [ (import rust-overlay) ];
@@ -107,9 +107,9 @@
         default = binary;
       };
 
-      formatter = pkgs.nixpkgs-fmt;
+      formatter.${system} = pkgs.nixpkgs-fmt;
 
-      devShells.default = mkShell {
+      devShells.${system}.default = mkShell {
         inputsFrom = [ binary ];
         buildInputs = with pkgs; [ dive wget ];
         packages = developmentTools;
@@ -132,5 +132,5 @@
           echo "Shell hook finished"
         '';
       };
-    }
+    };
 }
