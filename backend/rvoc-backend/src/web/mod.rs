@@ -83,6 +83,7 @@ pub async fn run_web_api(
 impl IntoResponse for RVocError {
     fn into_response(self) -> axum::response::Response {
         if let RVocError::UserError(user_error) = self {
+            error!("User error: {user_error:?}");
             user_error.into_response()
         } else {
             error!("Web API error: {self:?}");
