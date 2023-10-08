@@ -137,7 +137,6 @@ async fn reserve_job(
             |database_connection| {
                 Box::pin(async move {
                     use crate::database::schema::job_queue::dsl::*;
-                    use diesel::Identifiable;
                     use diesel::OptionalExtension;
                     use diesel::QueryDsl;
                     use diesel::SelectableHelper;
@@ -154,7 +153,7 @@ async fn reserve_job(
                         .await
                         .optional()?;
 
-                    if let Some(mut queued_job) = queued_job {
+                    if let Some(queued_job) = queued_job {
                         // Convert the job name into JobName.
                         // If it does not exist, then we delete the corresponding job.
                         let job_name = match JobName::from_str(&queued_job.name) {
@@ -170,21 +169,8 @@ async fn reserve_job(
                             }
                         };
 
-                        // Check if job is still running.
-                        if let Some(running_job) = job_queue
-                            .select(ScheduledJob::as_select())
-                            .filter(name.eq(job_name.to_string()))
-                            .filter(in_progress.eq(true))
-                            .first(database_connection)
-                            .await
-                            .optional()?
-                        {
-                            warn!("Job is still running: {:?}", running_job.id());
-                            return Ok(None);
-                        }
-
                         // Set the current job as in progress.
-                        queued_job.in_progress = true;
+                        let queued_job = queued_job.set_in_progress();
                         diesel::update(job_queue)
                             .set(&queued_job)
                             .execute(database_connection)
@@ -202,9 +188,9 @@ async fn reserve_job(
                             > configuration.job_queue_poll_interval + Duration::seconds(10)
                         {
                             warn!(
-                            "Job started with a delay larger than the job queue poll interval: {}",
-                            configuration.job_queue_poll_interval
-                        );
+                                "Job started with a delay larger than the job queue poll interval: {}",
+                                configuration.job_queue_poll_interval
+                            );
                         }
 
                         Ok(Some(job))
