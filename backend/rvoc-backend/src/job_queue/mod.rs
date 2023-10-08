@@ -147,7 +147,7 @@ async fn reserve_job(
                     // See if there is a job available.
                     let queued_job = job_queue
                         .select(ScheduledJob::as_select())
-                        .filter(scheduled_execution_time.ge(now))
+                        .filter(scheduled_execution_time.le(now))
                         .filter(in_progress.eq(false))
                         .order_by(scheduled_execution_time.asc())
                         .first(database_connection)
