@@ -102,7 +102,7 @@
     in
     with pkgs;
     {
-      packages = {
+      packages.${system} = {
         inherit binary debugBinary integrationTestsBinary dockerImage debugDockerImage;
         default = binary;
       };
