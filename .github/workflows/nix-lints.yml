@@ -17,6 +17,7 @@ on:
 
 jobs:
   nix_fmt:
+    name: Nix format
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
@@ -35,6 +36,7 @@ jobs:
       run: nix fmt --accept-flake-config -- --check .
     
   nix_dead_code:
+    name: Nix dead code
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
