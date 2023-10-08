@@ -29,7 +29,13 @@ pub async fn spawn_job_queue_runner(
     Ok(tokio::spawn(async move {
         use tokio::time;
 
-        let mut interval = time::interval(time::Duration::from_secs(1));
+        let mut interval = time::interval(time::Duration::from_secs(
+            configuration
+                .job_queue_poll_interval
+                .num_seconds()
+                .try_into()
+                .unwrap(),
+        ));
         interval.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
 
         while !shutdown_flag.load(atomic::Ordering::Relaxed) {
