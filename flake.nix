@@ -108,6 +108,9 @@
             inherit binary debugBinary integrationTestsBinary dockerImage debugDockerImage;
             default = binary;
           };
+
+          formatter = pkgs.nixpkgs-fmt;
+
           devShells.default = mkShell {
             inputsFrom = [binary];
             buildInputs = with pkgs; [dive wget];
