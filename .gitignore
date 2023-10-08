@@ -4,3 +4,4 @@
 /wiktionary_data
 debugBinary
 integrationTestsBinary
+*.log

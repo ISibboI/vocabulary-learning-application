@@ -144,5 +144,10 @@ diesel::joinable!(words -> languages (language));
 diesel::joinable!(words -> word_types (word_type));
 
 diesel::allow_tables_to_appear_in_same_query!(
-    job_queue, languages, sessions, users, word_types, words,
+    job_queue,
+    languages,
+    sessions,
+    users,
+    word_types,
+    words,
 );
