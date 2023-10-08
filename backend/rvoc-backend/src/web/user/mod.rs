@@ -68,8 +68,11 @@ pub async fn create_account(
             configuration.maximum_transaction_retry_count,
         )
         .await
-        .map_err(|error| RVocError::CreateUser {
-            source: Box::new(error),
+        .map_err(|error| match error {
+            error @ RVocError::UserError(_) => error,
+            error => RVocError::CreateUser {
+                source: Box::new(error),
+            },
         })
 }
 
@@ -118,7 +121,10 @@ pub async fn delete_account(
             configuration.maximum_transaction_retry_count,
         )
         .await
-        .map_err(|error| RVocError::DeleteUser {
-            source: Box::new(error),
+        .map_err(|error| match error {
+            error @ RVocError::UserError(_) => error,
+            error => RVocError::DeleteUser {
+                source: Box::new(error),
+            },
         })
 }

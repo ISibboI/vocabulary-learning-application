@@ -11,6 +11,7 @@ pub use self::sync_connection::RVocSyncDatabaseConnection;
 mod async_connection_pool;
 pub mod migrations;
 pub mod model;
+#[rustfmt::skip]
 pub mod schema;
 mod sync_connection;
 pub mod transactions;
