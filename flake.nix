@@ -18,12 +18,12 @@
       };
     };
   };
-  outputs = {self, nixpkgs, flake-utils, rust-overlay, crane}:
+  outputs = { self, nixpkgs, flake-utils, rust-overlay, crane }:
     flake-utils.lib.eachDefaultSystem
       (system:
         let
           system = "x86_64-linux";
-          overlays = [(import rust-overlay)];
+          overlays = [ (import rust-overlay) ];
           pkgs = import nixpkgs {
             inherit system overlays;
           };
@@ -39,47 +39,47 @@
               (craneLib.filterCargoSources path type)
             ;
           };
-          nativeBuildInputs = with pkgs; [rustToolchain pkg-config];
-          buildInputs = with pkgs; [rustToolchain openssl postgresql_15.lib];
-          developmentTools = with pkgs; [(diesel-cli.override {sqliteSupport = false; mysqlSupport = false;}) postgresql cargo];
+          nativeBuildInputs = with pkgs; [ rustToolchain pkg-config ];
+          buildInputs = with pkgs; [ rustToolchain openssl postgresql_15.lib ];
+          developmentTools = with pkgs; [ (diesel-cli.override { sqliteSupport = false; mysqlSupport = false; }) postgresql cargo ];
           commonArgs = {
             inherit src buildInputs nativeBuildInputs;
             installCargoArtifactsMode = "use-zstd";
             strictDeps = true;
           };
-          integrationTestsArtifacts = craneLib.buildDepsOnly(commonArgs // {
+          integrationTestsArtifacts = craneLib.buildDepsOnly (commonArgs // {
             cargoBuildCommand = "cargo build --profile dev";
             cargoExtraArgs = "--bin integration-tests";
             doCheck = false;
             pname = "integration-tests";
           });
-          integrationTestsBinary = craneLib.buildPackage(commonArgs // {
+          integrationTestsBinary = craneLib.buildPackage (commonArgs // {
             cargoArtifacts = integrationTestsArtifacts;
             cargoBuildCommand = "cargo build --profile dev";
             cargoExtraArgs = "--bin integration-tests";
             doCheck = false;
             pname = "integration-tests";
           });
-          cargoDebugArtifacts = craneLib.buildDepsOnly(commonArgs // {
+          cargoDebugArtifacts = craneLib.buildDepsOnly (commonArgs // {
             cargoBuildCommand = "cargo build --profile dev";
             cargoExtraArgs = "--bin rvoc-backend";
             doCheck = false;
             pname = "rvoc-backend";
           });
-          debugBinary = craneLib.buildPackage(commonArgs // {
+          debugBinary = craneLib.buildPackage (commonArgs // {
             cargoArtifacts = cargoDebugArtifacts;
             cargoBuildCommand = "cargo build --profile dev";
             cargoExtraArgs = "--bin rvoc-backend";
             doCheck = false;
             pname = "rvoc-backend";
           });
-          cargoArtifacts = craneLib.buildDepsOnly(commonArgs // {
+          cargoArtifacts = craneLib.buildDepsOnly (commonArgs // {
             cargoBuildCommand = "cargo build --profile release";
             cargoExtraArgs = "--bin rvoc-backend";
             doCheck = false;
             pname = "rvoc-backend";
           });
-          binary = craneLib.buildPackage(commonArgs // {
+          binary = craneLib.buildPackage (commonArgs // {
             cargoArtifacts = cargoArtifacts;
             cargoBuildCommand = "cargo build --profile release";
             cargoExtraArgs = "--bin rvoc-backend";
@@ -88,17 +88,17 @@
           dockerImage = pkgs.dockerTools.streamLayeredImage {
             name = "rvoc-backend";
             tag = "latest";
-            contents = [binary pkgs.cacert];
+            contents = [ binary pkgs.cacert ];
             config = {
-              Cmd = ["${binary}/bin/rvoc-backend"];
+              Cmd = [ "${binary}/bin/rvoc-backend" ];
             };
           };
           debugDockerImage = pkgs.dockerTools.streamLayeredImage {
             name = "rvoc-backend";
             tag = "latest";
-            contents = [debugBinary pkgs.cacert];
+            contents = [ debugBinary pkgs.cacert ];
             config = {
-              Cmd = ["${debugBinary}/bin/rvoc-backend"];
+              Cmd = [ "${debugBinary}/bin/rvoc-backend" ];
             };
           };
         in
@@ -112,8 +112,8 @@
           formatter = pkgs.nixpkgs-fmt;
 
           devShells.default = mkShell {
-            inputsFrom = [binary];
-            buildInputs = with pkgs; [dive wget];
+            inputsFrom = [ binary ];
+            buildInputs = with pkgs; [ dive wget ];
             packages = developmentTools;
             shellHook = ''
               export PGDATA=$PWD/backend/data/postgres_dev_data
