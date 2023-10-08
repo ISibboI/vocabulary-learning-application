@@ -149,6 +149,14 @@ impl Configuration {
             )?),
         };
 
+        if result.shutdown_timeout < Duration::zero() {
+            return Err(RVocError::NegativeShutdownTimeout);
+        }
+
+        if result.job_queue_poll_interval < Duration::zero() {
+            return Err(RVocError::NegativeJobQueuePollInterval);
+        }
+
         let password_pepper_length = result.password_pepper.unsecure().len();
         let password_pepper_min_length = 8;
         let password_pepper_max_length = 64;
