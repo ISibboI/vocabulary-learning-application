@@ -68,7 +68,7 @@
           });
           debugBinary = craneLib.buildPackage(commonArgs // {
             cargoArtifacts = cargoDebugArtifacts;
-            cargoBuildCommand = "cargo buildd --profile dev";
+            cargoBuildCommand = "cargo build --profile dev";
             cargoExtraArgs = "--bin rvoc-backend";
             doCheck = false;
             pname = "rvoc-backend";
