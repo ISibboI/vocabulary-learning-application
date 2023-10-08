@@ -2,5 +2,5 @@
 /.direnv
 /result
 /wiktionary_data
-/debugBinary
-/integrationTestsBinary
+debugBinary
+integrationTestsBinary

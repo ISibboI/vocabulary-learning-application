@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 echo "Building backend"
 nix build --out-link debugBinary .#debugBinary
 echo "Building tests"
@@ -11,6 +13,8 @@ debugBinary/bin/rvoc-backend apply-migrations
 echo "Starting backend in background"
 RUST_BACKTRACE=1 debugBinary/bin/rvoc-backend web &
 BACKEND_PID=$!
+
+set +e
 
 echo "Waiting 5 seconds for backend to start"
 sleep 5
