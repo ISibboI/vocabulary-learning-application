@@ -104,8 +104,11 @@ pub async fn login(
             configuration.maximum_transaction_retry_count,
         )
         .await
-        .map_err(|error| RVocError::Login {
-            source: Box::new(error),
+        .map_err(|error| match error {
+            error @ RVocError::UserError(_) => error,
+            error => RVocError::Login {
+                source: Box::new(error),
+            },
         })?;
 
     *session.data_mut() = RVocSessionData::LoggedIn(Username::new(login.name.clone()));
