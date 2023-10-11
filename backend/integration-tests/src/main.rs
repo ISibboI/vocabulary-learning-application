@@ -210,7 +210,7 @@ async fn test_wrong_password() -> anyhow::Result<()> {
             "/accounts/login",
             Login {
                 name: "lothar".to_owned(),
-                password: "anders".to_owned().into(),
+                password: "anders++".to_owned().into(),
             },
         )
         .await?;

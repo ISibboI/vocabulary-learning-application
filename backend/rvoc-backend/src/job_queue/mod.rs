@@ -29,7 +29,13 @@ pub async fn spawn_job_queue_runner(
     Ok(tokio::spawn(async move {
         use tokio::time;
 
-        let mut interval = time::interval(time::Duration::from_secs(1));
+        let mut interval = time::interval(time::Duration::from_secs(
+            configuration
+                .job_queue_poll_interval
+                .num_seconds()
+                .try_into()
+                .unwrap(),
+        ));
         interval.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
 
         while !shutdown_flag.load(atomic::Ordering::Relaxed) {
@@ -137,7 +143,6 @@ async fn reserve_job(
             |database_connection| {
                 Box::pin(async move {
                     use crate::database::schema::job_queue::dsl::*;
-                    use diesel::Identifiable;
                     use diesel::OptionalExtension;
                     use diesel::QueryDsl;
                     use diesel::SelectableHelper;
@@ -154,7 +159,7 @@ async fn reserve_job(
                         .await
                         .optional()?;
 
-                    if let Some(mut queued_job) = queued_job {
+                    if let Some(queued_job) = queued_job {
                         // Convert the job name into JobName.
                         // If it does not exist, then we delete the corresponding job.
                         let job_name = match JobName::from_str(&queued_job.name) {
@@ -170,21 +175,8 @@ async fn reserve_job(
                             }
                         };
 
-                        // Check if job is still running.
-                        if let Some(running_job) = job_queue
-                            .select(ScheduledJob::as_select())
-                            .filter(name.eq(job_name.to_string()))
-                            .filter(in_progress.eq(true))
-                            .first(database_connection)
-                            .await
-                            .optional()?
-                        {
-                            warn!("Job is still running: {:?}", running_job.id());
-                            return Ok(None);
-                        }
-
                         // Set the current job as in progress.
-                        queued_job.in_progress = true;
+                        let queued_job = queued_job.set_in_progress();
                         diesel::update(job_queue)
                             .set(&queued_job)
                             .execute(database_connection)
@@ -202,9 +194,9 @@ async fn reserve_job(
                             > configuration.job_queue_poll_interval + Duration::seconds(10)
                         {
                             warn!(
-                            "Job started with a delay larger than the job queue poll interval: {}",
-                            configuration.job_queue_poll_interval
-                        );
+                                "Job started with a delay larger than the job queue poll interval: {}",
+                                configuration.job_queue_poll_interval
+                            );
                         }
 
                         Ok(Some(job))
@@ -245,6 +237,7 @@ async fn complete_job(
             |database_connection| {
                 Box::pin(async move {
                     use crate::database::schema::job_queue::dsl::*;
+                    use diesel::ExpressionMethods;
                     use diesel_async::RunQueryDsl;
 
                     // Schedule the next execution.
@@ -259,6 +252,7 @@ async fn complete_job(
                     }
 
                     diesel::update(job_queue)
+                        .filter(name.eq(next_scheduled_execution.name.clone()))
                         .set(next_scheduled_execution)
                         .execute(database_connection)
                         .await?;

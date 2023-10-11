@@ -18,6 +18,12 @@ pub enum RVocError {
         source: BoxDynError,
     },
 
+    #[error("the configured shutdown timeout is negative")]
+    NegativeShutdownTimeout,
+
+    #[error("the configured job queue poll interval is negative")]
+    NegativeJobQueuePollInterval,
+
     #[error("setting up tracing failed: {source}")]
     SetupTracing { source: BoxDynError },
 

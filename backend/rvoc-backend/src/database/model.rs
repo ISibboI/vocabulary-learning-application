@@ -10,3 +10,12 @@ pub struct ScheduledJob {
     pub name: String,
     pub in_progress: bool,
 }
+
+impl ScheduledJob {
+    /// Sets `in_progress` to `true`, but panics if it was set to true already.
+    pub fn set_in_progress(mut self) -> Self {
+        assert!(!self.in_progress);
+        self.in_progress = true;
+        self
+    }
+}
