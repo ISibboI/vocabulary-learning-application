@@ -237,6 +237,7 @@ async fn complete_job(
             |database_connection| {
                 Box::pin(async move {
                     use crate::database::schema::job_queue::dsl::*;
+                    use diesel::ExpressionMethods;
                     use diesel_async::RunQueryDsl;
 
                     // Schedule the next execution.
@@ -251,6 +252,7 @@ async fn complete_job(
                     }
 
                     diesel::update(job_queue)
+                        .filter(name.eq(next_scheduled_execution.name.clone()))
                         .set(next_scheduled_execution)
                         .execute(database_connection)
                         .await?;
