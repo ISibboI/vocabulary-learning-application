@@ -10,6 +10,11 @@ use secstr::SecUtf8;
 /// The configuration of the application.
 #[derive(Debug, Clone)]
 pub struct Configuration {
+    /// If set, then some features that are unsuitable for integration tests are disabled.
+    /// For example:
+    ///  * Do not run the wiktionary update.
+    pub integration_test_mode: bool,
+
     /// The url to access postgres.
     pub postgres_url: SecUtf8,
 
@@ -81,6 +86,10 @@ impl Configuration {
     /// Read the configuration values from environment variables.
     pub fn from_environment() -> RVocResult<Self> {
         let result = Self {
+            integration_test_mode: read_env_var_with_default_as_type(
+                "RVOC_INTEGRATION_TEST_MODE",
+                false,
+            )?,
             postgres_url: read_env_var_with_default_as_type(
                 "POSTGRES_RVOC_URL",
                 "postgres://rvoc@localhost/rvoc",
@@ -186,6 +195,7 @@ impl Configuration {
 
     pub fn test_configuration() -> Self {
         Self {
+            integration_test_mode: true,
             postgres_url: "postgres://rvoc@localhost/rvoc".into(),
             opentelemetry_url: None,
             shutdown_timeout: Duration::seconds(30),

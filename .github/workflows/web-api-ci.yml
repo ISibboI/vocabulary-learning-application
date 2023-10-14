@@ -61,7 +61,9 @@ jobs:
       run: nix build --out-link integrationTestsBinary .#integrationTestsBinary
 
     - name: Set up environment variables
-      run: echo "PASSWORD_PEPPER=test-test-test-test" >> $GITHUB_ENV
+      run: | 
+        echo "PASSWORD_PEPPER=test-test-test-test" >> $GITHUB_ENV
+        echo "RVOC_INTEGRATION_TEST_MODE=true" >> $GITHUB_ENV
 
     - name: Run database migrations
       run: debugBinary/bin/rvoc-backend apply-migrations
