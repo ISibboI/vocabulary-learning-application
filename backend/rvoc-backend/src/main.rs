@@ -2,6 +2,7 @@ use std::sync::{atomic, Arc};
 
 use crate::database::migrations::run_migrations;
 use crate::error::RVocResult;
+use crate::job_queue::jobs::update_witkionary::run_update_wiktionary;
 use crate::job_queue::spawn_job_queue_runner;
 use crate::web::run_web_api;
 use crate::{configuration::Configuration, error::RVocError};
@@ -12,13 +13,11 @@ use secstr::SecVec;
 use tracing::{debug, info, instrument, Level};
 use tracing_subscriber::filter::FilterFn;
 use tracing_subscriber::Layer;
-use update_wiktionary::run_update_wiktionary;
 
 mod configuration;
 mod database;
 mod error;
 mod job_queue;
-mod update_wiktionary;
 mod web;
 
 type SecBytes = SecVec<u8>;

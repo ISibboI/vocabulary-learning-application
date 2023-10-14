@@ -8,7 +8,7 @@ use strum::{AsRefStr, Display, EnumIter, EnumString};
 use tokio::task::JoinHandle;
 use tracing::{debug, info, instrument, warn};
 
-mod jobs;
+pub mod jobs;
 
 use crate::{
     configuration::Configuration,
