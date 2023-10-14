@@ -8,13 +8,15 @@ use strum::{AsRefStr, Display, EnumIter, EnumString};
 use tokio::task::JoinHandle;
 use tracing::{debug, info, instrument, warn};
 
-mod jobs;
+pub mod jobs;
 
 use crate::{
     configuration::Configuration,
     database::{model::ScheduledJob, RVocAsyncDatabaseConnectionPool},
     error::{RVocError, RVocResult},
-    job_queue::jobs::update_witkionary::update_wiktionary,
+    job_queue::jobs::{
+        delete_expired_sessions::delete_expired_sessions, update_witkionary::update_wiktionary,
+    },
 };
 
 #[instrument(err, skip(database_connection_pool, configuration))]
@@ -122,6 +124,9 @@ async fn poll_job_queue_and_execute(
         match job.name {
             JobName::UpdateWiktionary => {
                 update_wiktionary(database_connection_pool, configuration).await?
+            }
+            JobName::DeleteExpiredSessions => {
+                delete_expired_sessions(database_connection_pool, configuration).await?
             }
         }
 
@@ -271,6 +276,7 @@ async fn complete_job(
 #[derive(Debug, Eq, PartialEq, Clone, Copy, EnumString, Display, AsRefStr, EnumIter)]
 pub enum JobName {
     UpdateWiktionary,
+    DeleteExpiredSessions,
 }
 
 #[derive(Debug)]
@@ -305,6 +311,9 @@ impl CompletedJob {
             JobName::UpdateWiktionary => {
                 self.finish_time + configuration.wiktionary_update_interval
             }
+            JobName::DeleteExpiredSessions => self
+                .finish_time
+                .max(self.start_time + configuration.delete_expired_sessions_interval),
         }
     }
 

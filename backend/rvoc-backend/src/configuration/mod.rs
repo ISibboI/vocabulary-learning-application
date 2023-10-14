@@ -80,6 +80,9 @@ pub struct Configuration {
 
     /// The interval at which wiktionary is polled for new dumps, and the dumps are integrated if there is a new one.
     pub wiktionary_update_interval: Duration,
+
+    /// The interval at which expired sessions are deleted from the database.
+    pub delete_expired_sessions_interval: Duration,
 }
 
 impl Configuration {
@@ -156,6 +159,12 @@ impl Configuration {
                 "WIKTIONARY_POLL_INTERVAL_HOURS",
                 24,
             )?),
+            delete_expired_sessions_interval: Duration::hours(read_env_var_with_default_as_type::<
+                i64,
+            >(
+                "DELETE_EXPIRED_SESSIONS_INTERVAL_HOURS",
+                24,
+            )?),
         };
 
         if result.shutdown_timeout < Duration::zero() {
@@ -214,6 +223,7 @@ impl Configuration {
             wiktionary_temporary_data_directory: "wiktionary_data".into(),
             wiktionary_dump_insertion_batch_size: 1000,
             wiktionary_update_interval: Duration::hours(24),
+            delete_expired_sessions_interval: Duration::hours(24),
         }
     }
 
