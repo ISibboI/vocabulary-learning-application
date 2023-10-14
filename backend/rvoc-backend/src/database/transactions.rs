@@ -30,6 +30,61 @@ impl RVocAsyncDatabaseConnectionPool {
             > + Sync,
         max_retries: u64,
     ) -> Result<ReturnType, PermanentErrorType> {
+        self.execute_transaction_with_isolation_level(
+            transaction,
+            max_retries,
+            TransactionIsolationLevel::Serializable,
+        )
+        .await
+    }
+
+    /// Execute an asynchronous database transaction in read committed and retry on failure.
+    /// Temporary failures are logged and the transaction is retried (by calling the closure again).
+    /// Permanent failures cause the function to return immediately.
+    ///
+    /// If `max_retries` temporary errors have occurred, then [`PermanentError::too_many_temporary_errors`] is returned.
+    ///
+    /// **Warning:** read committed mode is the weaked isolation level in postgres and should only be used if really necessary.
+    #[instrument(err, skip(self, transaction))]
+    pub async fn execute_read_committed_transaction<
+        'b,
+        ReturnType: 'b + Send,
+        PermanentErrorType: 'b + PermanentTransactionError + TooManyTemporaryTransactionErrors,
+    >(
+        &self,
+        transaction: impl for<'r> Fn(
+                &'r mut AsyncPgConnection,
+            ) -> diesel_async::scoped_futures::ScopedBoxFuture<
+                'b,
+                'r,
+                Result<ReturnType, TransactionError<PermanentErrorType>>,
+            > + Sync,
+        max_retries: u64,
+    ) -> Result<ReturnType, PermanentErrorType> {
+        self.execute_transaction_with_isolation_level(
+            transaction,
+            max_retries,
+            TransactionIsolationLevel::ReadCommitted,
+        )
+        .await
+    }
+
+    async fn execute_transaction_with_isolation_level<
+        'b,
+        ReturnType: 'b + Send,
+        PermanentErrorType: 'b + PermanentTransactionError + TooManyTemporaryTransactionErrors,
+    >(
+        &self,
+        transaction: impl for<'r> Fn(
+                &'r mut AsyncPgConnection,
+            ) -> diesel_async::scoped_futures::ScopedBoxFuture<
+                'b,
+                'r,
+                Result<ReturnType, TransactionError<PermanentErrorType>>,
+            > + Sync,
+        max_retries: u64,
+        isolation_level: TransactionIsolationLevel,
+    ) -> Result<ReturnType, PermanentErrorType> {
         let mut database_connection = self.implementation.get().await.map_err(|error| {
             PermanentErrorType::permanent_error(Box::new(RVocError::DatabaseConnection {
                 source: Box::new(error),
@@ -37,12 +92,18 @@ impl RVocAsyncDatabaseConnectionPool {
         })?;
 
         for _ in 0..max_retries.saturating_add(1) {
-            match database_connection
-                .build_transaction()
-                .serializable()
-                .run(&transaction)
-                .await
-            {
+            let transaction_result = match isolation_level {
+                TransactionIsolationLevel::Serializable => {
+                    database_connection.build_transaction().serializable()
+                }
+                TransactionIsolationLevel::ReadCommitted => {
+                    database_connection.build_transaction().read_committed()
+                }
+            }
+            .run(&transaction)
+            .await;
+
+            match transaction_result {
                 Ok(result) => return Ok(result),
                 Err(TransactionError::Temporary(error)) => {
                     debug!("temporary transaction error: {error}")
@@ -219,4 +280,10 @@ impl<ErrorType> From<diesel::result::Error> for FromDieselError<ErrorType> {
     fn from(value: diesel::result::Error) -> Self {
         Self::Diesel(value)
     }
+}
+
+#[derive(Clone, Copy, Debug)]
+enum TransactionIsolationLevel {
+    Serializable,
+    ReadCommitted,
 }
