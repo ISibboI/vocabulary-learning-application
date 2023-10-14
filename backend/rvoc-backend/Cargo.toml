@@ -33,7 +33,7 @@ thiserror = "1.0.44"
 # database
 diesel = { version = "2.1.0", features = ["postgres", "chrono"] }
 diesel_migrations = "2.1.0"
-diesel-async = { version = "0.3.2", features = ["postgres", "deadpool"] }
+diesel-async = { version = "0.4.1", features = ["postgres", "deadpool"] }
 
 # wiktionary parsing
 wiktionary-dump-parser = "0.6.0"
