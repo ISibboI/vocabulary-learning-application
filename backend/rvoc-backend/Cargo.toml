@@ -14,7 +14,7 @@ path = "src/main.rs"
 [dependencies]
 # runtime
 tokio = { version = "1.29.1", features = [] }
-async-trait = "0.1.73"
+async-trait = "0.1.74"
 
 # cli - configuration happens via environment variables,
 #       we only use a cli for manual administrative tasks.
