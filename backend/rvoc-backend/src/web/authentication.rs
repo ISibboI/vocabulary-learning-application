@@ -67,8 +67,15 @@ pub async fn login(
                         .await
                         .optional()?
                     {
-                        password_hash
+                        if let Some(password_hash) = password_hash {
+                            password_hash
+                        } else {
+                            // Here the optional() returned a row, but with a null password hash.
+                            info!("User has no password: {:?}", login.name);
+                            return Err(UserError::InvalidUsernamePassword.into());
+                        }
                     } else {
+                        // Here the optional() returned None, i.e. no row was found.
                         info!("User not found: {:?}", login.name);
                         return Err(UserError::InvalidUsernamePassword.into());
                     };
