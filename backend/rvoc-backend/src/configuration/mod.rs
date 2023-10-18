@@ -149,7 +149,7 @@ impl Configuration {
             )?,
             wiktionary_temporary_data_directory: read_env_var_with_default_as_type(
                 "WIKTIONARY_TEMPORARY_DATA_DIRECTORY",
-                "wiktionary_data",
+                "data/wiktionary_data",
             )?,
             wiktionary_dump_insertion_batch_size: read_env_var_with_default_as_type(
                 "WIKTIONARY_DUMP_INSERTION_BATCH_SIZE",
