@@ -15,7 +15,7 @@ use crate::{
     web::run_web_api,
 };
 
-/// Decide how to run the application.
+/// CLI of the vocabulary learning application.
 #[derive(Parser, Debug, Default)]
 enum Cli {
     /// Run the web API (default).
