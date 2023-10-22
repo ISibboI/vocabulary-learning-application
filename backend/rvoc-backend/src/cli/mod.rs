@@ -31,7 +31,7 @@ enum Cli {
 
     /// Apply pending database migrations.
     ApplyMigrations,
-    
+
     /// Expire the passwords of all users.
     ExpireAllPasswords,
 }
