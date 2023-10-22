@@ -16,16 +16,22 @@ use crate::{
 };
 
 /// Decide how to run the application.
-/// This should only be used internally for code that does not support async,
-/// and hence should be run as subprocess.
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Default)]
 enum Cli {
-    /// Run the web API, this is the only variant that should be called by the user.
+    /// Run the web API (default).
+    #[default]
     Web,
+
     /// Update the wiktionary data.
+    /// This is done automatically while the web application runs.
+    /// But if required, it can be run manually with this command.
+    ///
+    /// **WARNING:** The web API should not run while running this command, since otherwise a simultaneous update is possible, with unforseeable results.
     UpdateWiktionary,
+
     /// Apply pending database migrations.
     ApplyMigrations,
+    
     /// Expire the passwords of all users.
     ExpireAllPasswords,
 }
