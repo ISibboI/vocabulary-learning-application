@@ -230,4 +230,47 @@ mod tests {
             }
         );
     }
+
+    #[test]
+    fn test_empty_password_hash() {
+        let configuration = Configuration::test_configuration();
+
+        println!("Hash algo: {}", HASH_ALGORITHM.ident());
+        println!("Hash algo version: {}", u32::from(HASH_ALGORITHM_VERSION));
+        println!(
+            "Hash algo parameters: {:?}",
+            configuration.build_argon2_parameters().unwrap()
+        );
+
+        let password = SecBytes::from("mypassword");
+        let mut password_hash = PasswordHash::new(password.clone(), &configuration).unwrap();
+
+        let verify_password_result = password_hash.verify(password.clone(), &configuration);
+        assert!(
+            verify_password_result.is_ok(),
+            "password hash result: {verify_password_result:?}"
+        );
+        assert_eq!(
+            verify_password_result.unwrap(),
+            VerifyPasswordResult {
+                matches: true,
+                modified: false,
+            }
+        );
+
+        // set to none
+        password_hash.argon_hash = None;
+        let verify_password_result = password_hash.verify(password.clone(), &configuration);
+        assert!(
+            verify_password_result.is_ok(),
+            "password hash result: {verify_password_result:?}"
+        );
+        assert_eq!(
+            verify_password_result.unwrap(),
+            VerifyPasswordResult {
+                matches: false,
+                modified: false,
+            }
+        );
+    }
 }
