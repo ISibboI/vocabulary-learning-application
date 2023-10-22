@@ -66,8 +66,9 @@ impl PasswordHash {
         configuration: impl AsRef<Configuration>,
     ) -> RVocResult<VerifyPasswordResult> {
         let Some(argon_hash) = &self.argon_hash else {
-            return Err(RVocError::PasswordArgon2IdVerify {
-                source: Box::new(password_hash::Error::Password),
+            return Ok(VerifyPasswordResult {
+                matches: false,
+                modified: false,
             });
         };
 
