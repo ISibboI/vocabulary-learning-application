@@ -94,7 +94,7 @@ pub async fn login(
                     if verify_result.modified {
                         let affected_rows = diesel::update(users::table)
                             .filter(users::name.eq(&login.name))
-                            .set(users::password_hash.eq(String::from(password_hash)))
+                            .set(users::password_hash.eq(Option::<String>::from(password_hash)))
                             .execute(database_connection)
                             .await?;
 

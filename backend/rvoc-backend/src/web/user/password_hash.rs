@@ -15,7 +15,7 @@ static HASH_ALGORITHM_VERSION: argon2::Version = argon2::Version::V0x13;
 
 #[derive(Clone, Debug)]
 pub struct PasswordHash {
-    argon_hash: SecUtf8,
+    argon_hash: Option<SecUtf8>,
 }
 
 #[must_use]
@@ -47,13 +47,15 @@ impl PasswordHash {
 
         let argon2 = Self::build_argon2(configuration)?;
 
-        let argon_hash = argon2
-            .hash_password(plaintext_password.unsecure(), &salt)
-            .map_err(|error| RVocError::PasswordArgon2IdHash {
-                source: Box::new(error),
-            })?
-            .to_string()
-            .into();
+        let argon_hash = Some(
+            argon2
+                .hash_password(plaintext_password.unsecure(), &salt)
+                .map_err(|error| RVocError::PasswordArgon2IdHash {
+                    source: Box::new(error),
+                })?
+                .to_string()
+                .into(),
+        );
 
         Ok(Self { argon_hash })
     }
@@ -63,10 +65,18 @@ impl PasswordHash {
         plaintext_password: SecBytes,
         configuration: impl AsRef<Configuration>,
     ) -> RVocResult<VerifyPasswordResult> {
+        let Some(argon_hash) = &self.argon_hash else {
+            return Err(RVocError::PasswordArgon2IdVerify {
+                source: Box::new(password_hash::Error::Password),
+            });
+        };
+
         let configuration = configuration.as_ref();
-        let parsed_hash = argon2::password_hash::PasswordHash::new(self.argon_hash.unsecure())
-            .map_err(|error| RVocError::PasswordArgon2IdVerify {
-                source: Box::new(error),
+        let parsed_hash =
+            argon2::password_hash::PasswordHash::new(argon_hash.unsecure()).map_err(|error| {
+                RVocError::PasswordArgon2IdVerify {
+                    source: Box::new(error),
+                }
             })?;
         let argon2 = Self::build_argon2_from_parameters(
             argon2::Params::try_from(&parsed_hash).map_err(|error| {
@@ -145,23 +155,25 @@ impl PasswordHash {
     }
 }
 
-impl From<PasswordHash> for String {
+impl From<PasswordHash> for Option<String> {
     fn from(value: PasswordHash) -> Self {
-        value.argon_hash.into_unsecure()
+        value.argon_hash.map(SecUtf8::into_unsecure)
+    }
+}
+
+impl From<Option<String>> for PasswordHash {
+    fn from(value: Option<String>) -> Self {
+        Self {
+            argon_hash: value.map(Into::into),
+        }
     }
 }
 
 impl From<String> for PasswordHash {
     fn from(value: String) -> Self {
         Self {
-            argon_hash: value.into(),
+            argon_hash: Some(value.into()),
         }
-    }
-}
-
-impl AsRef<str> for PasswordHash {
-    fn as_ref(&self) -> &str {
-        self.argon_hash.unsecure()
     }
 }
 
@@ -188,7 +200,6 @@ mod tests {
 
         let password = SecBytes::from("mypassword");
         let mut password_hash = PasswordHash::new(password.clone(), &configuration).unwrap();
-        println!("hash string: {}", password_hash.as_ref());
 
         let verify_password_result = password_hash.verify(password.clone(), &configuration);
         assert!(
@@ -204,8 +215,8 @@ mod tests {
         );
 
         // convert to string and back
-        let password_hash_string = String::from(password_hash);
-        let mut password_hash = PasswordHash::from(password_hash_string);
+        let password_hash_string = Option::<String>::from(password_hash).unwrap();
+        let mut password_hash = PasswordHash::from(Some(password_hash_string));
         let verify_password_result = password_hash.verify(password.clone(), &configuration);
         assert!(
             verify_password_result.is_ok(),
