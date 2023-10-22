@@ -1,6 +1,7 @@
 use std::sync::{atomic, Arc};
 
 use clap::Parser;
+use diesel_async::RunQueryDsl;
 use tracing::{debug, info, instrument};
 
 use crate::{
@@ -61,7 +62,7 @@ pub async fn run_cli_command(configuration: &Configuration) -> RVocResult<()> {
 async fn run_rvoc_backend(configuration: &Configuration) -> RVocResult<()> {
     debug!("Running rvoc backend with configuration: {configuration:#?}");
 
-    // Connect to database.
+    // Create database connection pool.
     // (This does not actually connect to the database, connections are created lazily.)
     let database_connection_pool = create_async_database_connection_pool(configuration).await?;
 
@@ -109,6 +110,33 @@ async fn apply_pending_database_migrations(configuration: &Configuration) -> RVo
 
 #[instrument(err, skip(configuration))]
 async fn expire_all_passwords(configuration: &Configuration) -> RVocResult<()> {
+    // Create database connection pool.
+    // (This does not actually connect to the database, connections are created lazily.)
+    let database_connection_pool = create_async_database_connection_pool(configuration).await?;
+
+    database_connection_pool
+        .execute_read_committed_transaction(
+            |database_connection| {
+                Box::pin(async {
+                    use crate::database::schema::users::dsl::*;
+                    use diesel::ExpressionMethods;
+
+                    diesel::update(users)
+                        .set(password_hash.eq(Option::<String>::None))
+                        .execute(database_connection)
+                        .await
+                        .map_err(|error| {
+                            RVocError::ExpireAllPasswords {
+                                source: Box::new(error),
+                            }
+                            .into()
+                        })
+                })
+            },
+            configuration.maximum_transaction_retry_count,
+        )
+        .await?;
+
     todo!()
 
     //Ok(())
