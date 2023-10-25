@@ -90,6 +90,9 @@ pub enum RVocError {
     #[error("error expiring all passwords: {source}")]
     ExpireAllPasswords { source: BoxDynError },
 
+    #[error("error reading password from stdin: {source}")]
+    ReadPasswordFromStdin { source: BoxDynError },
+
     #[error("error deleting all user sessions: {source}")]
     DeleteAllUserSessions { source: BoxDynError },
 

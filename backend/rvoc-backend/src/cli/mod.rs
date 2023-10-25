@@ -1,7 +1,10 @@
 use std::sync::{atomic, Arc};
 
+use api_commands::SecBytes;
 use clap::Parser;
 use diesel_async::RunQueryDsl;
+use secstr::SecUtf8;
+use tokio::io::{stdin, AsyncReadExt};
 use tracing::{debug, info, instrument};
 
 use crate::{
@@ -13,6 +16,7 @@ use crate::{
     error::RVocError,
     error::RVocResult,
     job_queue::{jobs::update_witkionary::run_update_wiktionary, spawn_job_queue_runner},
+    model::user::password_hash::PasswordHash,
     web::run_web_api,
 };
 
@@ -35,6 +39,18 @@ enum Cli {
 
     /// Expire the passwords of all users.
     ExpireAllPasswords,
+
+    /// Set the password of a user.
+    /// If no password is given, then it is read from stdin.
+    SetPassword {
+        /// The name of the user.
+        #[arg(short, long)]
+        username: String,
+        /// The new password.
+        /// If not given, then it is read from stdin.
+        #[arg(short, long)]
+        password: Option<SecBytes>,
+    },
 }
 
 #[instrument(skip(configuration))]
@@ -53,6 +69,9 @@ pub async fn run_cli_command(configuration: &Configuration) -> RVocResult<()> {
         }
         Cli::ApplyMigrations => apply_pending_database_migrations(configuration).await?,
         Cli::ExpireAllPasswords => expire_all_passwords(configuration).await?,
+        Cli::SetPassword { username, password } => {
+            set_password(username, password, configuration).await?
+        }
     }
 
     Ok(())
@@ -62,8 +81,6 @@ pub async fn run_cli_command(configuration: &Configuration) -> RVocResult<()> {
 async fn run_rvoc_backend(configuration: &Configuration) -> RVocResult<()> {
     debug!("Running rvoc backend with configuration: {configuration:#?}");
 
-    // Create database connection pool.
-    // (This does not actually connect to the database, connections are created lazily.)
     let database_connection_pool = create_async_database_connection_pool(configuration).await?;
 
     // Create shutdown flag.
@@ -110,8 +127,6 @@ async fn apply_pending_database_migrations(configuration: &Configuration) -> RVo
 
 #[instrument(err, skip(configuration))]
 async fn expire_all_passwords(configuration: &Configuration) -> RVocResult<()> {
-    // Create database connection pool.
-    // (This does not actually connect to the database, connections are created lazily.)
     let database_connection_pool = create_async_database_connection_pool(configuration).await?;
 
     database_connection_pool
@@ -137,7 +152,52 @@ async fn expire_all_passwords(configuration: &Configuration) -> RVocResult<()> {
         )
         .await?;
 
-    todo!()
+    Ok(())
+}
 
-    //Ok(())
+#[instrument(err, skip(configuration))]
+async fn set_password(
+    username: String,
+    password: Option<SecBytes>,
+    configuration: &Configuration,
+) -> RVocResult<()> {
+    let password = if let Some(password) = password {
+        password
+    } else {
+        let mut password = Vec::new();
+        stdin().read_to_end(&mut password).await.map_err(|error| {
+            RVocError::ReadPasswordFromStdin {
+                source: Box::new(error),
+            }
+        })?;
+        SecBytes::from(password)
+    };
+
+    let password_hash = PasswordHash::new(password, configuration)?;
+    let password_hash = Option::<SecUtf8>::from(password_hash).expect(
+        "creating a password hash from a password should never return an empty password hash",
+    );
+
+    let database_connection_pool = create_async_database_connection_pool(configuration).await?;
+
+    database_connection_pool
+        .execute_transaction::<_, RVocError>(
+            |database_connection| {
+                Box::pin(async {
+                    use crate::database::schema::users;
+                    use diesel::ExpressionMethods;
+
+                    diesel::update(users::table)
+                        .filter(users::name.eq(&username))
+                        .set(users::password_hash.eq(password_hash.unsecure()))
+                        .execute(database_connection)
+                        .await
+                        .map_err(Into::into)
+                })
+            },
+            configuration.maximum_transaction_retry_count,
+        )
+        .await?;
+
+    Ok(())
 }

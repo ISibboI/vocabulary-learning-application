@@ -17,7 +17,7 @@ use crate::{
         RVocAsyncDatabaseConnectionPool,
     },
     error::{BoxDynError, RVocError},
-    model::user::Username,
+    model::user::username::Username,
 };
 
 #[derive(Clone)]

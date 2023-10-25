@@ -1,6 +1,6 @@
 use crate::{
     error::{RVocError, RVocResult, UserError},
-    model::user::{password_hash::PasswordHash, User, Username},
+    model::user::{password_hash::PasswordHash, username::Username, User},
 };
 use api_commands::CreateAccount;
 use axum::{http::StatusCode, Extension, Json};

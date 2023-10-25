@@ -11,7 +11,7 @@ use typed_session_axum::{SessionHandle, WritableSession};
 
 use crate::{
     error::{RVocError, RVocResult, UserError},
-    model::user::{password_hash::PasswordHash, Username},
+    model::user::{password_hash::PasswordHash, username::Username},
 };
 
 use super::{session::RVocSessionData, WebConfiguration, WebDatabaseConnectionPool};

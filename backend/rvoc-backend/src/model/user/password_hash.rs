@@ -157,11 +157,23 @@ impl From<PasswordHash> for Option<String> {
     }
 }
 
+impl From<PasswordHash> for Option<SecUtf8> {
+    fn from(value: PasswordHash) -> Self {
+        value.argon_hash
+    }
+}
+
 impl From<Option<String>> for PasswordHash {
     fn from(value: Option<String>) -> Self {
         Self {
             argon_hash: value.map(Into::into),
         }
+    }
+}
+
+impl From<Option<SecUtf8>> for PasswordHash {
+    fn from(value: Option<SecUtf8>) -> Self {
+        Self { argon_hash: value }
     }
 }
 
