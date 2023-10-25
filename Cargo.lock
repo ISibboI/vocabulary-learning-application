@@ -102,7 +102,7 @@ dependencies = [
 name = "api_commands"
 version = "0.0.1"
 dependencies = [
- "secstr",
+ "secure-string",
  "serde",
  "serde_json",
 ]
@@ -1052,6 +1052,7 @@ dependencies = [
  "api_commands",
  "log",
  "reqwest",
+ "secure-string",
  "serde",
  "serde_json",
  "simplelog",
@@ -1812,7 +1813,7 @@ dependencies = [
  "opentelemetry-otlp",
  "password-hash",
  "rand",
- "secstr",
+ "secure-string",
  "serde",
  "strum",
  "thiserror",
@@ -1858,22 +1859,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
-name = "secstr"
-version = "0.5.1"
-source = "git+https://codeberg.org/ISibboI/secstr.git?rev=841f3d5c66b6057bcd19288d10206e1b1cbd76c1#841f3d5c66b6057bcd19288d10206e1b1cbd76c1"
-dependencies = [
- "libc",
- "serde",
- "zeroize",
-]
-
-[[package]]
 name = "secure-string"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "548ba8c9ff631f7bb3a64de1e8ad73fe20f6d04090724f2b496ed45314ad7488"
 dependencies = [
  "libc",
+ "serde",
  "zeroize",
 ]
 

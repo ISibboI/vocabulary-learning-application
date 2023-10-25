@@ -2,9 +2,9 @@ use argon2::Argon2;
 use argon2::PasswordHasher;
 use password_hash::PasswordVerifier;
 use password_hash::{rand_core::OsRng, SaltString};
-use secstr::SecUtf8;
+use secure_string::SecureBytes;
+use secure_string::SecureString;
 
-use crate::SecBytes;
 use crate::{
     configuration::Configuration,
     error::{RVocError, RVocResult},
@@ -15,7 +15,7 @@ static HASH_ALGORITHM_VERSION: argon2::Version = argon2::Version::V0x13;
 
 #[derive(Clone, Debug)]
 pub struct PasswordHash {
-    argon_hash: Option<SecUtf8>,
+    argon_hash: Option<SecureString>,
 }
 
 #[must_use]
@@ -30,7 +30,7 @@ pub struct VerifyPasswordResult {
 
 impl PasswordHash {
     pub fn new(
-        plaintext_password: SecBytes,
+        plaintext_password: SecureBytes,
         configuration: impl AsRef<Configuration>,
     ) -> RVocResult<Self> {
         let configuration = configuration.as_ref();
@@ -55,7 +55,7 @@ impl PasswordHash {
 
     pub fn verify(
         &mut self,
-        plaintext_password: SecBytes,
+        plaintext_password: SecureBytes,
         configuration: impl AsRef<Configuration>,
     ) -> RVocResult<VerifyPasswordResult> {
         let Some(argon_hash) = &self.argon_hash else {
@@ -153,11 +153,11 @@ impl PasswordHash {
 
 impl From<PasswordHash> for Option<String> {
     fn from(value: PasswordHash) -> Self {
-        value.argon_hash.map(SecUtf8::into_unsecure)
+        value.argon_hash.map(SecureString::into_unsecure)
     }
 }
 
-impl From<PasswordHash> for Option<SecUtf8> {
+impl From<PasswordHash> for Option<SecureString> {
     fn from(value: PasswordHash) -> Self {
         value.argon_hash
     }
@@ -171,8 +171,8 @@ impl From<Option<String>> for PasswordHash {
     }
 }
 
-impl From<Option<SecUtf8>> for PasswordHash {
-    fn from(value: Option<SecUtf8>) -> Self {
+impl From<Option<SecureString>> for PasswordHash {
+    fn from(value: Option<SecureString>) -> Self {
         Self { argon_hash: value }
     }
 }
@@ -187,8 +187,10 @@ impl From<String> for PasswordHash {
 
 #[cfg(test)]
 mod tests {
+    use secure_string::SecureBytes;
+
     use super::{PasswordHash, VerifyPasswordResult, HASH_ALGORITHM, HASH_ALGORITHM_VERSION};
-    use crate::{configuration::Configuration, SecBytes};
+    use crate::configuration::Configuration;
 
     #[test]
     fn test_password_check() {
@@ -201,7 +203,7 @@ mod tests {
             configuration.build_argon2_parameters().unwrap()
         );
 
-        let password = SecBytes::from("mypassword");
+        let password = SecureBytes::from("mypassword");
         let mut password_hash = PasswordHash::new(password.clone(), &configuration).unwrap();
 
         let verify_password_result = password_hash.verify(password.clone(), &configuration);
@@ -245,7 +247,7 @@ mod tests {
             configuration.build_argon2_parameters().unwrap()
         );
 
-        let password = SecBytes::from("mypassword");
+        let password = SecureBytes::from("mypassword");
         let mut password_hash = PasswordHash::new(password.clone(), &configuration).unwrap();
 
         let verify_password_result = password_hash.verify(password.clone(), &configuration);

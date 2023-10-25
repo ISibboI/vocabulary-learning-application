@@ -1,7 +1,8 @@
 use anyhow::{bail, Context};
-use api_commands::{CreateAccount, Login, SecBytes};
+use api_commands::{CreateAccount, Login};
 use log::{debug, error, info};
 use reqwest::StatusCode;
+use secure_string::SecureBytes;
 use simplelog::TermLogger;
 use tokio::spawn;
 
@@ -151,7 +152,7 @@ async fn test_user_account_deletion() -> anyhow::Result<()> {
 
 async fn test_login_logout() -> anyhow::Result<()> {
     let client = HttpClient::new().await?;
-    let password = SecBytes::from("wald😀😀😀😀".to_owned());
+    let password = SecureBytes::from("wald😀😀😀😀".to_owned());
 
     let response = client
         .post(
