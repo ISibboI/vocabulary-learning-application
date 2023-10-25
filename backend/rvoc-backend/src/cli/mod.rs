@@ -38,6 +38,8 @@ enum Cli {
     ApplyMigrations,
 
     /// Expire the passwords of all users.
+    /// This should always succeed, and users who update their passwords simultaneously should receive an error.
+    /// Note that this does not expire all sessions.
     ExpireAllPasswords,
 
     /// Set the password of a user.
