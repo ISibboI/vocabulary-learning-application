@@ -18,12 +18,12 @@ pub async fn create_account(
     Extension(configuration): WebConfiguration,
     Json(create_account): Json<CreateAccount>,
 ) -> RVocResult<StatusCode> {
-    configuration.verify_username_length(&create_account.name)?;
-    configuration.verify_password_length(&create_account.password)?;
+    let CreateAccount { username, password } = create_account;
+    let username = Username::new(username, &configuration)?;
 
     let user = User {
-        name: Username::new(create_account.name),
-        password_hash: PasswordHash::new(create_account.password, &configuration)?,
+        name: username,
+        password_hash: PasswordHash::new(password, &configuration)?,
     };
 
     database_connection_pool

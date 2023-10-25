@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use diesel::{Insertable, Queryable, Selectable};
@@ -21,8 +23,7 @@ use crate::{
 #[derive(Clone)]
 pub struct RVocSessionStoreConnector {
     database_connection_pool: RVocAsyncDatabaseConnectionPool,
-    maximum_retries_on_id_collision: u32,
-    maximum_transaction_retry_count: u64,
+    configuration: Arc<Configuration>,
 }
 
 #[derive(Default, Debug)]
@@ -35,13 +36,11 @@ pub enum RVocSessionData {
 impl RVocSessionStoreConnector {
     pub fn new(
         database_connection_pool: RVocAsyncDatabaseConnectionPool,
-        configuration: &Configuration,
+        configuration: Arc<Configuration>,
     ) -> Self {
         Self {
             database_connection_pool,
-            maximum_retries_on_id_collision: configuration
-                .maximum_session_id_generation_retry_count,
-            maximum_transaction_retry_count: configuration.maximum_transaction_retry_count,
+            configuration,
         }
     }
 }
@@ -51,7 +50,7 @@ impl SessionStoreConnector<RVocSessionData> for RVocSessionStoreConnector {
     type Error = RVocError;
 
     fn maximum_retries_on_id_collision(&self) -> Option<u32> {
-        Some(self.maximum_retries_on_id_collision)
+        Some(self.configuration.maximum_session_id_generation_retry_count)
     }
 
     async fn create_session(
@@ -85,7 +84,7 @@ impl SessionStoreConnector<RVocSessionData> for RVocSessionStoreConnector {
                         Ok(())
                     })
                 },
-                self.maximum_transaction_retry_count,
+                self.configuration.maximum_transaction_retry_count,
             )
             .await
         {
@@ -128,7 +127,7 @@ impl SessionStoreConnector<RVocSessionData> for RVocSessionStoreConnector {
                             .map_err(TransactionError::from)
                     })
                 },
-                self.maximum_transaction_retry_count,
+                self.configuration.maximum_transaction_retry_count,
             )
             .await
             .map_err(|error| {
@@ -143,7 +142,9 @@ impl SessionStoreConnector<RVocSessionData> for RVocSessionStoreConnector {
                 SessionExpiry::DateTime(queryable.expiry)
             };
             let data = match queryable.username {
-                Some(name) => RVocSessionData::LoggedIn(Username::new(name)),
+                Some(username) => {
+                    RVocSessionData::LoggedIn(Username::new(username, &self.configuration)?)
+                }
                 None => RVocSessionData::Anonymous,
             };
 
@@ -200,7 +201,7 @@ impl SessionStoreConnector<RVocSessionData> for RVocSessionStoreConnector {
                         Ok(())
                     })
                 },
-                self.maximum_transaction_retry_count,
+                self.configuration.maximum_transaction_retry_count,
             )
             .await
         {
@@ -245,7 +246,7 @@ impl SessionStoreConnector<RVocSessionData> for RVocSessionStoreConnector {
 
                     Ok(())
                 })
-            }, self.maximum_transaction_retry_count)
+            }, self.configuration.maximum_transaction_retry_count)
             .await
             .map_err(|error|typed_session::Error::SessionStoreConnector(RVocError::DeleteSession {source: Box::new(error)}))
     }
@@ -264,7 +265,7 @@ impl SessionStoreConnector<RVocSessionData> for RVocSessionStoreConnector {
                             .map_err(Into::into)
                     })
                 },
-                self.maximum_transaction_retry_count,
+                self.configuration.maximum_transaction_retry_count,
             )
             .await
             .map(|_| ())

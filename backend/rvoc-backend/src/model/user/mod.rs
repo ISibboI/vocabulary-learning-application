@@ -1,5 +1,7 @@
 use diesel::prelude::Insertable;
 
+use crate::{configuration::Configuration, error::RVocResult};
+
 use self::password_hash::PasswordHash;
 
 pub mod password_hash;
@@ -22,8 +24,10 @@ pub struct Username {
 }
 
 impl Username {
-    pub fn new(name: String) -> Self {
-        Self { name }
+    pub fn new(name: String, configuration: impl AsRef<Configuration>) -> RVocResult<Self> {
+        configuration.as_ref().verify_username_length(&name)?;
+
+        Ok(Self { name })
     }
 }
 

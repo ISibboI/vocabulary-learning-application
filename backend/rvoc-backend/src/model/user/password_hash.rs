@@ -34,14 +34,7 @@ impl PasswordHash {
         configuration: impl AsRef<Configuration>,
     ) -> RVocResult<Self> {
         let configuration = configuration.as_ref();
-
-        // the password length should be checked at the point where we have the password as string.
-        let plaintext_password_length = plaintext_password.unsecure().len();
-        assert!(
-            plaintext_password_length >= configuration.minimum_password_length
-        // times 4 because this is the length in bytes, and not in unicode code points
-            && plaintext_password_length <= configuration.maximum_password_length * 4
-        );
+        configuration.verify_password_length(&plaintext_password)?;
 
         let salt = SaltString::generate(&mut OsRng);
 
@@ -73,6 +66,8 @@ impl PasswordHash {
         };
 
         let configuration = configuration.as_ref();
+        configuration.verify_password_length(&plaintext_password)?;
+
         let parsed_hash =
             argon2::password_hash::PasswordHash::new(argon_hash.unsecure()).map_err(|error| {
                 RVocError::PasswordArgon2IdVerify {

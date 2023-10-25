@@ -43,8 +43,8 @@ pub async fn login(
     // any failed login attempt should cause a logout
     *session.data_mut() = RVocSessionData::Anonymous;
 
-    configuration.verify_username_length(&login.name)?;
-    configuration.verify_password_length(&login.password)?;
+    let Login { username, password } = login;
+    let username = Username::new(username, &configuration)?;
 
     database_connection_pool
         .execute_transaction::<_, RVocError>(
@@ -60,7 +60,7 @@ pub async fn login(
                     // get password hash
                     let password_hash: String = if let Some(password_hash) = users::table
                         .select(users::password_hash)
-                        .filter(users::name.eq(&login.name))
+                        .filter(users::name.eq(username.as_ref()))
                         .first(database_connection)
                         .await
                         .optional()?
@@ -69,29 +69,29 @@ pub async fn login(
                             password_hash
                         } else {
                             // Here the optional() returned a row, but with a null password hash.
-                            info!("User has no password: {:?}", login.name);
+                            info!("User has no password: {:?}", username);
                             return Err(UserError::InvalidUsernamePassword.into());
                         }
                     } else {
                         // Here the optional() returned None, i.e. no row was found.
-                        info!("User not found: {:?}", login.name);
+                        info!("User not found: {:?}", username);
                         return Err(UserError::InvalidUsernamePassword.into());
                     };
 
                     // verify password hash
                     let mut password_hash = PasswordHash::from(password_hash);
                     let verify_result =
-                        password_hash.verify(login.password.clone(), configuration)?;
+                        password_hash.verify(password.clone(), configuration)?;
 
                     if !verify_result.matches {
-                        info!("Wrong password for user: {:?}", login.name);
+                        info!("Wrong password for user: {:?}", username);
                         return Err(UserError::InvalidUsernamePassword.into());
                     }
 
                     // update password hash if modified
                     if verify_result.modified {
                         let affected_rows = diesel::update(users::table)
-                            .filter(users::name.eq(&login.name))
+                            .filter(users::name.eq(username.as_ref()))
                             .set(users::password_hash.eq(Option::<String>::from(password_hash)))
                             .execute(database_connection)
                             .await?;
@@ -116,7 +116,7 @@ pub async fn login(
             },
         })?;
 
-    *session.data_mut() = RVocSessionData::LoggedIn(Username::new(login.name.clone()));
+    *session.data_mut() = RVocSessionData::LoggedIn(username);
 
     Ok(StatusCode::NO_CONTENT)
 }

@@ -6,13 +6,13 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 pub struct CreateAccount {
-    pub name: String,
+    pub username: String,
     pub password: SecBytes,
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 pub struct Login {
-    pub name: String,
+    pub username: String,
     pub password: SecBytes,
 }
 
@@ -23,7 +23,7 @@ mod tests {
     #[test]
     fn test_serde_create_account() {
         let create_account = CreateAccount {
-            name: "anne".to_owned(),
+            username: "anne".to_owned(),
             password: "frank".to_owned().into(),
         };
 
