@@ -15,9 +15,8 @@ use crate::{
         RVocAsyncDatabaseConnectionPool,
     },
     error::{BoxDynError, RVocError},
+    model::user::Username,
 };
-
-use super::user::model::Username;
 
 #[derive(Clone)]
 pub struct RVocSessionStoreConnector {

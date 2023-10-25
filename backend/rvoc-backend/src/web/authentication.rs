@@ -11,12 +11,10 @@ use typed_session_axum::{SessionHandle, WritableSession};
 
 use crate::{
     error::{RVocError, RVocResult, UserError},
-    web::user::password_hash::PasswordHash,
+    model::user::{password_hash::PasswordHash, Username},
 };
 
-use super::{
-    session::RVocSessionData, user::model::Username, WebConfiguration, WebDatabaseConnectionPool,
-};
+use super::{session::RVocSessionData, WebConfiguration, WebDatabaseConnectionPool};
 
 pub async fn ensure_logged_in<B>(mut request: Request<B>, next: Next<B>) -> Response {
     let session: &SessionHandle<RVocSessionData> = request.extensions().get().unwrap();

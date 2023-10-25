@@ -11,6 +11,7 @@ mod configuration;
 mod database;
 mod error;
 mod job_queue;
+mod model;
 mod web;
 
 type SecBytes = SecVec<u8>;

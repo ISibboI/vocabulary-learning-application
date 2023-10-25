@@ -180,13 +180,8 @@ impl From<String> for PasswordHash {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        configuration::Configuration,
-        web::user::password_hash::{VerifyPasswordResult, HASH_ALGORITHM, HASH_ALGORITHM_VERSION},
-        SecBytes,
-    };
-
-    use super::PasswordHash;
+    use super::{PasswordHash, VerifyPasswordResult, HASH_ALGORITHM, HASH_ALGORITHM_VERSION};
+    use crate::{configuration::Configuration, SecBytes};
 
     #[test]
     fn test_password_check() {

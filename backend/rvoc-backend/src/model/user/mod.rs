@@ -1,6 +1,8 @@
 use diesel::prelude::Insertable;
 
-use super::password_hash::PasswordHash;
+use self::password_hash::PasswordHash;
+
+pub mod password_hash;
 
 #[derive(Insertable, Clone, Debug)]
 #[diesel(table_name = crate::database::schema::users)]
