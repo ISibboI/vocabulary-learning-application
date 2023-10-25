@@ -1,19 +1,16 @@
-use secstr::SecVec;
-
-pub type SecBytes = SecVec<u8>;
-
+use secure_string::SecureBytes;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 pub struct CreateAccount {
     pub username: String,
-    pub password: SecBytes,
+    pub password: SecureBytes,
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 pub struct Login {
     pub username: String,
-    pub password: SecBytes,
+    pub password: SecureBytes,
 }
 
 #[cfg(test)]

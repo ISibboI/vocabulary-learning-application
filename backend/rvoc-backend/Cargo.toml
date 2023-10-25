@@ -59,7 +59,7 @@ argon2 = { version = "0.5.1", features = ["std"] }
 rand = "0.8.5"
 
 # sensitive data handling
-secstr.workspace = true
+secure-string.workspace = true
 
 # web api
 api_commands = { path = "../api_commands" }

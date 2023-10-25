@@ -1,7 +1,6 @@
 use crate::error::RVocResult;
 use crate::{configuration::Configuration, error::RVocError};
 use cli::run_cli_command;
-use secstr::SecVec;
 use tracing::{info, instrument, Level};
 use tracing_subscriber::filter::FilterFn;
 use tracing_subscriber::Layer;
@@ -13,8 +12,6 @@ mod error;
 mod job_queue;
 mod model;
 mod web;
-
-type SecBytes = SecVec<u8>;
 
 #[instrument(err, skip(configuration))]
 fn setup_tracing_subscriber(configuration: &Configuration) -> RVocResult<()> {

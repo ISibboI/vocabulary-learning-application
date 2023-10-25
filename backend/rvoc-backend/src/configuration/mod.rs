@@ -1,11 +1,8 @@
 use std::{env::VarError, error::Error, net::SocketAddr, path::PathBuf, str::FromStr};
 
-use crate::{
-    error::{RVocError, RVocResult, UserError},
-    SecBytes,
-};
+use crate::error::{RVocError, RVocResult, UserError};
 use chrono::Duration;
-use secstr::SecUtf8;
+use secure_string::{SecureBytes, SecureString};
 
 /// The configuration of the application.
 #[derive(Debug, Clone)]
@@ -16,7 +13,7 @@ pub struct Configuration {
     pub integration_test_mode: bool,
 
     /// The url to access postgres.
-    pub postgres_url: SecUtf8,
+    pub postgres_url: SecureString,
 
     /// The url to send opentelemetry to.
     pub opentelemetry_url: Option<String>,
@@ -50,7 +47,7 @@ pub struct Configuration {
     pub maximum_password_length: usize,
 
     /// An additional salt that is shared between all passwords, but not stored in the database.
-    pub password_pepper: SecBytes,
+    pub password_pepper: SecureBytes,
 
     /// The minimum memory parameter of the Argon2id password hash function.
     /// See the [OWASP password storage cheat sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#argon2id)
@@ -252,7 +249,7 @@ impl Configuration {
         }
     }
 
-    pub fn verify_password_length(&self, password: &SecBytes) -> RVocResult<()> {
+    pub fn verify_password_length(&self, password: &SecureBytes) -> RVocResult<()> {
         let unsecure_password = password.unsecure();
         if unsecure_password.len() < self.minimum_password_length
             || unsecure_password.len() > self.maximum_password_length

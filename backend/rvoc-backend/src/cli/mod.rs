@@ -1,9 +1,8 @@
 use std::sync::{atomic, Arc};
 
-use api_commands::SecBytes;
 use clap::Parser;
 use diesel_async::RunQueryDsl;
-use secstr::SecUtf8;
+use secure_string::{SecureBytes, SecureString};
 use tokio::io::{stdin, AsyncReadExt};
 use tracing::{debug, info, instrument};
 
@@ -51,7 +50,7 @@ enum Cli {
         /// The new password.
         /// If not given, then it is read from stdin.
         #[arg(short, long)]
-        password: Option<SecBytes>,
+        password: Option<SecureBytes>,
     },
 }
 
@@ -160,7 +159,7 @@ async fn expire_all_passwords(configuration: &Configuration) -> RVocResult<()> {
 #[instrument(err, skip(configuration))]
 async fn set_password(
     username: String,
-    password: Option<SecBytes>,
+    password: Option<SecureBytes>,
     configuration: &Configuration,
 ) -> RVocResult<()> {
     let password = if let Some(password) = password {
@@ -172,11 +171,11 @@ async fn set_password(
                 source: Box::new(error),
             }
         })?;
-        SecBytes::from(password)
+        SecureBytes::from(password)
     };
 
     let password_hash = PasswordHash::new(password, configuration)?;
-    let password_hash = Option::<SecUtf8>::from(password_hash).expect(
+    let password_hash = Option::<SecureString>::from(password_hash).expect(
         "creating a password hash from a password should never return an empty password hash",
     );
 

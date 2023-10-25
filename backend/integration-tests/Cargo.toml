@@ -27,5 +27,8 @@ serde_json = "1.0.105"
 # web api
 api_commands = { path = "../api_commands" }
 
+# sensitive data handling
+secure-string.workspace = true
+
 # errors
 anyhow = { version = "1.0.75", features = ["backtrace"] }
