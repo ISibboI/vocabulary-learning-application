@@ -44,6 +44,8 @@ pub async fn run_web_api(
         StatusCode::INTERNAL_SERVER_ERROR
     }
 
+    let configuration = Arc::new(configuration.clone());
+
     let router = Router::new()
         .route("/accounts/delete", delete(delete_account))
         .route("/accounts/logout", post(logout))
@@ -59,10 +61,10 @@ pub async fn run_web_api(
         )
         .layer(Extension(RVocSessionStoreConnector::new(
             database_connection_pool.clone(),
-            configuration,
+            configuration.clone(),
         )))
         .layer(Extension(database_connection_pool))
-        .layer(Extension(Arc::new(configuration.clone())));
+        .layer(Extension(configuration.clone()));
 
     debug!(
         "Listening for API requests on {}",

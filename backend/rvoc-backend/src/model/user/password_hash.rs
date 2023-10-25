@@ -15,7 +15,7 @@ static HASH_ALGORITHM_VERSION: argon2::Version = argon2::Version::V0x13;
 
 #[derive(Clone, Debug)]
 pub struct PasswordHash {
-    argon_hash: SecUtf8,
+    argon_hash: Option<SecUtf8>,
 }
 
 #[must_use]
@@ -34,26 +34,21 @@ impl PasswordHash {
         configuration: impl AsRef<Configuration>,
     ) -> RVocResult<Self> {
         let configuration = configuration.as_ref();
-
-        // the password length should be checked at the point where we have the password as string.
-        let plaintext_password_length = plaintext_password.unsecure().len();
-        assert!(
-            plaintext_password_length >= configuration.minimum_password_length
-        // times 4 because this is the length in bytes, and not in unicode code points
-            && plaintext_password_length <= configuration.maximum_password_length * 4
-        );
+        configuration.verify_password_length(&plaintext_password)?;
 
         let salt = SaltString::generate(&mut OsRng);
 
         let argon2 = Self::build_argon2(configuration)?;
 
-        let argon_hash = argon2
-            .hash_password(plaintext_password.unsecure(), &salt)
-            .map_err(|error| RVocError::PasswordArgon2IdHash {
-                source: Box::new(error),
-            })?
-            .to_string()
-            .into();
+        let argon_hash = Some(
+            argon2
+                .hash_password(plaintext_password.unsecure(), &salt)
+                .map_err(|error| RVocError::PasswordArgon2IdHash {
+                    source: Box::new(error),
+                })?
+                .to_string()
+                .into(),
+        );
 
         Ok(Self { argon_hash })
     }
@@ -63,10 +58,21 @@ impl PasswordHash {
         plaintext_password: SecBytes,
         configuration: impl AsRef<Configuration>,
     ) -> RVocResult<VerifyPasswordResult> {
+        let Some(argon_hash) = &self.argon_hash else {
+            return Ok(VerifyPasswordResult {
+                matches: false,
+                modified: false,
+            });
+        };
+
         let configuration = configuration.as_ref();
-        let parsed_hash = argon2::password_hash::PasswordHash::new(self.argon_hash.unsecure())
-            .map_err(|error| RVocError::PasswordArgon2IdVerify {
-                source: Box::new(error),
+        configuration.verify_password_length(&plaintext_password)?;
+
+        let parsed_hash =
+            argon2::password_hash::PasswordHash::new(argon_hash.unsecure()).map_err(|error| {
+                RVocError::PasswordArgon2IdVerify {
+                    source: Box::new(error),
+                }
             })?;
         let argon2 = Self::build_argon2_from_parameters(
             argon2::Params::try_from(&parsed_hash).map_err(|error| {
@@ -145,35 +151,44 @@ impl PasswordHash {
     }
 }
 
-impl From<PasswordHash> for String {
+impl From<PasswordHash> for Option<String> {
     fn from(value: PasswordHash) -> Self {
-        value.argon_hash.into_unsecure()
+        value.argon_hash.map(SecUtf8::into_unsecure)
+    }
+}
+
+impl From<PasswordHash> for Option<SecUtf8> {
+    fn from(value: PasswordHash) -> Self {
+        value.argon_hash
+    }
+}
+
+impl From<Option<String>> for PasswordHash {
+    fn from(value: Option<String>) -> Self {
+        Self {
+            argon_hash: value.map(Into::into),
+        }
+    }
+}
+
+impl From<Option<SecUtf8>> for PasswordHash {
+    fn from(value: Option<SecUtf8>) -> Self {
+        Self { argon_hash: value }
     }
 }
 
 impl From<String> for PasswordHash {
     fn from(value: String) -> Self {
         Self {
-            argon_hash: value.into(),
+            argon_hash: Some(value.into()),
         }
-    }
-}
-
-impl AsRef<str> for PasswordHash {
-    fn as_ref(&self) -> &str {
-        self.argon_hash.unsecure()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        configuration::Configuration,
-        web::user::password_hash::{VerifyPasswordResult, HASH_ALGORITHM, HASH_ALGORITHM_VERSION},
-        SecBytes,
-    };
-
-    use super::PasswordHash;
+    use super::{PasswordHash, VerifyPasswordResult, HASH_ALGORITHM, HASH_ALGORITHM_VERSION};
+    use crate::{configuration::Configuration, SecBytes};
 
     #[test]
     fn test_password_check() {
@@ -188,7 +203,6 @@ mod tests {
 
         let password = SecBytes::from("mypassword");
         let mut password_hash = PasswordHash::new(password.clone(), &configuration).unwrap();
-        println!("hash string: {}", password_hash.as_ref());
 
         let verify_password_result = password_hash.verify(password.clone(), &configuration);
         assert!(
@@ -204,8 +218,8 @@ mod tests {
         );
 
         // convert to string and back
-        let password_hash_string = String::from(password_hash);
-        let mut password_hash = PasswordHash::from(password_hash_string);
+        let password_hash_string = Option::<String>::from(password_hash).unwrap();
+        let mut password_hash = PasswordHash::from(Some(password_hash_string));
         let verify_password_result = password_hash.verify(password.clone(), &configuration);
         assert!(
             verify_password_result.is_ok(),
@@ -215,6 +229,49 @@ mod tests {
             verify_password_result.unwrap(),
             VerifyPasswordResult {
                 matches: true,
+                modified: false,
+            }
+        );
+    }
+
+    #[test]
+    fn test_empty_password_hash() {
+        let configuration = Configuration::test_configuration();
+
+        println!("Hash algo: {}", HASH_ALGORITHM.ident());
+        println!("Hash algo version: {}", u32::from(HASH_ALGORITHM_VERSION));
+        println!(
+            "Hash algo parameters: {:?}",
+            configuration.build_argon2_parameters().unwrap()
+        );
+
+        let password = SecBytes::from("mypassword");
+        let mut password_hash = PasswordHash::new(password.clone(), &configuration).unwrap();
+
+        let verify_password_result = password_hash.verify(password.clone(), &configuration);
+        assert!(
+            verify_password_result.is_ok(),
+            "password hash result: {verify_password_result:?}"
+        );
+        assert_eq!(
+            verify_password_result.unwrap(),
+            VerifyPasswordResult {
+                matches: true,
+                modified: false,
+            }
+        );
+
+        // set to none
+        password_hash.argon_hash = None;
+        let verify_password_result = password_hash.verify(password.clone(), &configuration);
+        assert!(
+            verify_password_result.is_ok(),
+            "password hash result: {verify_password_result:?}"
+        );
+        assert_eq!(
+            verify_password_result.unwrap(),
+            VerifyPasswordResult {
+                matches: false,
                 modified: false,
             }
         );

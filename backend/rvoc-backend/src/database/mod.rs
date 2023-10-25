@@ -17,6 +17,7 @@ mod sync_connection;
 pub mod transactions;
 
 /// Create an async connection pool to the database.
+/// Note that this does not actually open any connections to the database, the connections are opened lazily.
 ///
 /// If there are pending database migrations, this method returns an error.
 pub async fn create_async_database_connection_pool(

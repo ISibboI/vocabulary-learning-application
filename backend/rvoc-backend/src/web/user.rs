@@ -1,22 +1,16 @@
+use crate::{
+    error::{RVocError, RVocResult, UserError},
+    model::user::{password_hash::PasswordHash, username::Username, User},
+};
 use api_commands::CreateAccount;
 use axum::{http::StatusCode, Extension, Json};
 use tracing::instrument;
 use typed_session_axum::WritableSession;
 
-use crate::error::{RVocError, RVocResult, UserError};
-
-use self::{
-    model::{User, Username},
-    password_hash::PasswordHash,
-};
-
 use super::{
     authentication::LoggedInUser, session::RVocSessionData, WebConfiguration,
     WebDatabaseConnectionPool,
 };
-
-pub mod model;
-pub mod password_hash;
 
 #[instrument(err, skip(database_connection_pool, configuration))]
 pub async fn create_account(
@@ -24,12 +18,12 @@ pub async fn create_account(
     Extension(configuration): WebConfiguration,
     Json(create_account): Json<CreateAccount>,
 ) -> RVocResult<StatusCode> {
-    configuration.verify_username_length(&create_account.name)?;
-    configuration.verify_password_length(&create_account.password)?;
+    let CreateAccount { username, password } = create_account;
+    let username = Username::new(username, &configuration)?;
 
     let user = User {
-        name: Username::new(create_account.name),
-        password_hash: PasswordHash::new(create_account.password, &configuration)?,
+        name: username,
+        password_hash: PasswordHash::new(password, &configuration)?,
     };
 
     database_connection_pool
