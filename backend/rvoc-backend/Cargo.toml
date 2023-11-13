@@ -20,7 +20,7 @@ async-trait = "0.1.74"
 
 # cli - configuration happens via environment variables,
 #       we only use a cli for manual administrative tasks.
-clap = { version = "4.4.7", features = ["derive"] }
+clap = { version = "4.4.8", features = ["derive"] }
 
 # logging and telemetry
 tracing = "0.1.40"
