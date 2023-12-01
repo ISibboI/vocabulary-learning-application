@@ -46,14 +46,11 @@ jobs:
         echo "POSTGRES_RVOC_URL=postgres://postgres:postgres@localhost/rvoc" >> $GITHUB_ENV
 
     - name: Install nix
-      uses: cachix/install-nix-action@v22
+      uses: DeterminateSystems/nix-installer-action@v8
 
-    - name: Cache /nix/store
-      uses: actions/cache@v3
-      with:
-        path: /nix/store
-        key: ${{ runner.os }}-${{ hashFiles('flake.*') }}-${{ hashFiles('.github/workflows/web-api-ci.yml') }}
-
+    - name: Cache nix
+      uses: DeterminateSystems/magic-nix-cache-action@v2
+      
     - name: Build debug binary
       run: nix build --out-link debugBinary .#debugBinary
     
