@@ -15,9 +15,9 @@ mod web;
 
 #[instrument(err, skip(configuration))]
 fn setup_tracing_subscriber(configuration: &Configuration) -> RVocResult<()> {
-    use opentelemetry::sdk::Resource;
     use opentelemetry::KeyValue;
     use opentelemetry_otlp::WithExportConfig;
+    use opentelemetry_sdk::Resource;
     use tracing::subscriber::set_global_default;
     use tracing_subscriber::fmt::Layer;
     use tracing_subscriber::layer::SubscriberExt;
@@ -38,21 +38,22 @@ fn setup_tracing_subscriber(configuration: &Configuration) -> RVocResult<()> {
     let subscriber = Registry::default().with(logging_layer);
 
     let with_otel = if let Some(opentelemetry_url) = configuration.opentelemetry_url.as_ref() {
-        let tracer =
-            opentelemetry_otlp::new_pipeline()
-                .tracing()
-                .with_trace_config(opentelemetry::sdk::trace::config().with_resource(
-                    Resource::new(vec![KeyValue::new("service.name", "rvoc-backend")]),
-                ))
-                .with_exporter(
-                    opentelemetry_otlp::new_exporter()
-                        .tonic()
-                        .with_endpoint(opentelemetry_url),
-                )
-                .install_batch(opentelemetry::runtime::TokioCurrentThread)
-                .map_err(|error| RVocError::SetupTracing {
-                    source: Box::new(error),
-                })?;
+        let tracer = opentelemetry_otlp::new_pipeline()
+            .tracing()
+            .with_trace_config(
+                opentelemetry_sdk::trace::config().with_resource(Resource::new(vec![
+                    KeyValue::new("service.name", "rvoc-backend"),
+                ])),
+            )
+            .with_exporter(
+                opentelemetry_otlp::new_exporter()
+                    .tonic()
+                    .with_endpoint(opentelemetry_url),
+            )
+            .install_batch(opentelemetry_sdk::runtime::TokioCurrentThread)
+            .map_err(|error| RVocError::SetupTracing {
+                source: Box::new(error),
+            })?;
 
         let otel_layer = tracing_opentelemetry::layer().with_tracer(tracer);
 

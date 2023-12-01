@@ -25,9 +25,12 @@ clap = { version = "4.4.7", features = ["derive"] }
 # logging and telemetry
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.17", features = ["fmt", "json"] }
-tracing-opentelemetry = { version = "0.21.0" }
-opentelemetry = { version = "0.20.0", features = ["rt-tokio-current-thread"] }
-opentelemetry-otlp = { version = "0.13.0" }
+tracing-opentelemetry = { version = "0.22.0" }
+opentelemetry = { version = "0.21.0" }
+opentelemetry_sdk = { version = "0.21.1", features = [
+    "rt-tokio-current-thread",
+] }
+opentelemetry-otlp = { version = "0.14.0" }
 
 # error handling
 thiserror = "1.0.50"
