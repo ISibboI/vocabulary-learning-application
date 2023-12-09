@@ -9,6 +9,7 @@ mod cli;
 mod configuration;
 mod database;
 mod error;
+mod integration_tests;
 mod job_queue;
 mod model;
 mod web;
