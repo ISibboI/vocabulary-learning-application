@@ -14,6 +14,7 @@ use crate::{
     },
     error::RVocError,
     error::RVocResult,
+    integration_tests::run_internal_integration_tests,
     job_queue::{jobs::update_witkionary::run_update_wiktionary, spawn_job_queue_runner},
     model::user::password_hash::PasswordHash,
     web::run_web_api,
@@ -52,6 +53,9 @@ enum Cli {
         #[arg(short, long)]
         password: Option<SecureBytes>,
     },
+
+    /// Run integration tests that require a database, but use APIs that are not exposed through the web interface.
+    RunInternalIntegrationTests,
 }
 
 #[instrument(skip(configuration))]
@@ -73,6 +77,7 @@ pub async fn run_cli_command(configuration: &Configuration) -> RVocResult<()> {
         Cli::SetPassword { username, password } => {
             set_password(username, password, configuration).await?
         }
+        Cli::RunInternalIntegrationTests => run_internal_integration_tests(configuration).await?,
     }
 
     Ok(())

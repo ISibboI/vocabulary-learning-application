@@ -65,6 +65,9 @@ jobs:
     - name: Run database migrations
       run: debugBinary/bin/rvoc-backend apply-migrations
 
+    - name: Run internal integration tests
+      run: debugBinary/bin/rvoc-backend run-internal-integration-tests
+
     - name: Run integration tests
       uses: BerniWittmann/background-server-action@v1
       with:
