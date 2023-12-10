@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use tokio::time::sleep;
-use tracing::instrument;
+use tracing::{info, instrument};
 
 use crate::configuration::Configuration;
 use crate::database::create_async_database_connection_pool;
@@ -41,6 +41,8 @@ async fn test_aborted_transaction(configuration: &Configuration) -> RVocResult<(
         )
         .await?;
 
+    info!("Test table set up successfully");
+
     // Trigger a serialisation failure
     let (first, second) = tokio::join!(
         database_connection_pool.execute_transaction::<_, RVocError>(
@@ -69,7 +71,7 @@ async fn test_aborted_transaction(configuration: &Configuration) -> RVocResult<(
 
                 Ok(())
             }),
-            2
+            0
         ),
         database_connection_pool.execute_transaction::<_, RVocError>(
             |database_connection| Box::pin(async move {
@@ -97,12 +99,22 @@ async fn test_aborted_transaction(configuration: &Configuration) -> RVocResult<(
 
                 Ok(())
             }),
-            2
+            0
         ),
     );
 
-    first?;
-    second?;
+    info!("Serialisation failure should have triggered");
+    info!("First result:  {first:?}");
+    info!("Second result: {second:?}");
+    assert!(
+        matches!(
+            first,
+            Err(RVocError::DatabaseTransactionRetryLimitReached { .. })
+        ) || matches!(
+            second,
+            Err(RVocError::DatabaseTransactionRetryLimitReached { .. })
+        )
+    );
 
     // Ensure that we can still do transactions on the same data
     database_connection_pool
@@ -131,5 +143,7 @@ async fn test_aborted_transaction(configuration: &Configuration) -> RVocResult<(
         )
         .await?;
 
-    todo!()
+    info!("Success! Transactions still work after serialisation failure");
+
+    Ok(())
 }
