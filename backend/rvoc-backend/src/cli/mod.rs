@@ -37,10 +37,13 @@ enum Cli {
     /// Apply pending database migrations.
     ApplyMigrations,
 
-    /// Expire the passwords of all users.
+    /// Expire the passwords and sessions of all users.
     /// This should always succeed, and users who update their passwords simultaneously should receive an error.
-    /// Note that this does not expire all sessions.
     ExpireAllPasswords,
+
+    /// Expire all sessions of all users.
+    /// This should always succeed, and sessions that are updated simultaneously should be be logged out anyways.
+    ExpireAllSessions,
 
     /// Set the password of a user.
     /// If no password is given, then it is read from stdin.
@@ -74,6 +77,7 @@ pub async fn run_cli_command(configuration: &Configuration) -> RVocResult<()> {
         }
         Cli::ApplyMigrations => apply_pending_database_migrations(configuration).await?,
         Cli::ExpireAllPasswords => expire_all_passwords(configuration).await?,
+        Cli::ExpireAllSessions => expire_all_sessions(configuration).await?,
         Cli::SetPassword { username, password } => {
             set_password(username, password, configuration).await?
         }
@@ -148,6 +152,36 @@ async fn expire_all_passwords(configuration: &Configuration) -> RVocResult<()> {
                         .await
                         .map_err(|error| {
                             RVocError::ExpireAllPasswords {
+                                source: Box::new(error),
+                            }
+                            .into()
+                        })
+                })
+            },
+            configuration.maximum_transaction_retry_count,
+        )
+        .await?;
+
+    expire_all_sessions(configuration).await?;
+
+    Ok(())
+}
+
+#[instrument(err, skip(configuration))]
+async fn expire_all_sessions(configuration: &Configuration) -> RVocResult<()> {
+    let database_connection_pool = create_async_database_connection_pool(configuration).await?;
+
+    database_connection_pool
+        .execute_read_committed_transaction(
+            |database_connection| {
+                Box::pin(async {
+                    use crate::database::schema::sessions::dsl::*;
+
+                    diesel::delete(sessions)
+                        .execute(database_connection)
+                        .await
+                        .map_err(|error| {
+                            RVocError::ExpireAllSessions {
                                 source: Box::new(error),
                             }
                             .into()
