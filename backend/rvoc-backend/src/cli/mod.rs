@@ -37,9 +37,8 @@ enum Cli {
     /// Apply pending database migrations.
     ApplyMigrations,
 
-    /// Expire the passwords of all users.
+    /// Expire the passwords and sessions of all users.
     /// This should always succeed, and users who update their passwords simultaneously should receive an error.
-    /// Note that this does not expire all sessions.
     ExpireAllPasswords,
 
     /// Expire all sessions of all users.
@@ -162,6 +161,8 @@ async fn expire_all_passwords(configuration: &Configuration) -> RVocResult<()> {
             configuration.maximum_transaction_retry_count,
         )
         .await?;
+
+    expire_all_sessions(configuration).await?;
 
     Ok(())
 }
