@@ -45,11 +45,11 @@ jobs:
 
       - name: Create list of allowed licenses
         run: >
-          cat >allowed-licenses.txt <<EOF
+          cat >allowed-licenses.txt <<END
           MIT
           Apache-2.0
           Apache-2.0 OR MIT
-          EOF
+          END
 
       - name: Remove allowed licenses
         run: grep -v -f allowed-licenses.txt licenses.txt > unknown-licenses.txt
@@ -61,4 +61,5 @@ jobs:
           else
             echo "There are unknown licenses"
             cat unknown-licenses.txt | sort | uniq
+            exit 1
           fi
