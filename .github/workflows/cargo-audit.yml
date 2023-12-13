@@ -29,3 +29,25 @@ jobs:
         name: Audit Rust Dependencies
         with:
           ignore: RUSTSEC-2020-0071
+
+  licenses:
+    name: "Cargo license"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Install cargo-license
+        run: cargo install cargo-license
+
+      - name: Run cargo-license
+        run: cargo license --all-features -d > licenses.txt
+
+      - name: Create list of allowed licenses
+        run: echo "MIT\nApache-2" > allowed-licenses.txt
+
+      - name: Remove allowed licenses
+        run: grep -v -f allowed-licenses.txt licenses.txt > unknown-licenses.txt
+
+      - name: Assert that there are no unknown licenses
+        run: "[ ! -s file.name ]"
