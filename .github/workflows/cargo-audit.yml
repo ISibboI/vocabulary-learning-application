@@ -50,4 +50,10 @@ jobs:
         run: grep -v -f allowed-licenses.txt licenses.txt > unknown-licenses.txt
 
       - name: Assert that there are no unknown licenses
-        run: "[ ! -s file.name ]"
+        run: >
+          if [ ! -s "unknown-licenses.txt" ]; then
+            echo "OK"
+          else
+            echo "There are unknown licenses"
+            cat unknown-licenses.txt | sort | uniq
+          fi
