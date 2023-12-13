@@ -44,7 +44,7 @@ jobs:
         run: cargo license --all-features -d > licenses.txt
 
       - name: Create list of allowed licenses
-        run: >
+        run: |
           cat >allowed-licenses.txt <<END
           MIT
           Apache-2.0
