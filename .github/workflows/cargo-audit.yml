@@ -72,7 +72,7 @@ jobs:
           END
 
       - name: Remove allowed licenses
-        run: grep -v -f allowed-licenses.txt licenses.txt > unknown-licenses.txt
+        run: grep -v -f allowed-licenses.txt licenses.txt > unknown-licenses.txt || echo "All used licenses are allowed"
 
       - name: Assert that there are no unknown licenses
         run: >
