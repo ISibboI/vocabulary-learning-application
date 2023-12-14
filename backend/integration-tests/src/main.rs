@@ -458,7 +458,7 @@ async fn test_failed_login_rate_limit() -> anyhow::Result<()> {
         .post(
             "/accounts/login",
             Login {
-                username: "alexander".to_owned(),
+                username: "edgar".to_owned(),
                 password: "andré-edgar".to_owned().into(),
             },
         )
