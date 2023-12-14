@@ -106,11 +106,11 @@ impl Configuration {
             opentelemetry_url: read_optional_env_var("OPENTELEMETRY_URL")?,
             shutdown_timeout: Duration::seconds(read_env_var_with_default_as_type(
                 "RVOC_SHUTDOWN_TIMEOUT",
-                30i64,
+                30,
             )?),
             job_queue_poll_interval: Duration::seconds(read_env_var_with_default_as_type(
                 "JOB_QUEUE_POLL_INTERVAL_SECONDS",
-                60i64,
+                60,
             )?),
             maximum_transaction_retry_count: read_env_var_with_default_as_type(
                 "MAXIMUM_TRANSACTION_RETRY_COUNT",
@@ -173,13 +173,11 @@ impl Configuration {
                 "WIKTIONARY_DUMP_INSERTION_BATCH_SIZE",
                 1000usize,
             )?,
-            wiktionary_update_interval: Duration::hours(read_env_var_with_default_as_type::<i64>(
+            wiktionary_update_interval: Duration::hours(read_env_var_with_default_as_type(
                 "WIKTIONARY_POLL_INTERVAL_HOURS",
                 24,
             )?),
-            delete_expired_sessions_interval: Duration::hours(read_env_var_with_default_as_type::<
-                i64,
-            >(
+            delete_expired_sessions_interval: Duration::hours(read_env_var_with_default_as_type(
                 "DELETE_EXPIRED_SESSIONS_INTERVAL_HOURS",
                 24,
             )?),
