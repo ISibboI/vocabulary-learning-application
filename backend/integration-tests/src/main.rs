@@ -391,29 +391,19 @@ async fn test_login_rate_limit() -> anyhow::Result<()> {
 
     assert_response_status!(response, StatusCode::CREATED)?;
 
-    let response = client
-        .post(
-            "/accounts/login",
-            Login {
-                username: "alexander".to_owned(),
-                password: "abusch-abusch".to_owned().into(),
-            },
-        )
-        .await?;
+    for _ in 0..10 {
+        let response = client
+            .post(
+                "/accounts/login",
+                Login {
+                    username: "alexander".to_owned(),
+                    password: "abusch-abusch".to_owned().into(),
+                },
+            )
+            .await?;
 
-    assert_response_status!(response, StatusCode::NO_CONTENT)?;
-
-    let response = client
-        .post(
-            "/accounts/login",
-            Login {
-                username: "alexander".to_owned(),
-                password: "abusch-abusch".to_owned().into(),
-            },
-        )
-        .await?;
-
-    assert_response_status!(response, StatusCode::NO_CONTENT)?;
+        assert_response_status!(response, StatusCode::NO_CONTENT)?;
+    }
 
     let response = client
         .post(
@@ -442,17 +432,19 @@ async fn test_failed_login_rate_limit() -> anyhow::Result<()> {
 
     assert_response_status!(response, StatusCode::CREATED)?;
 
-    let response = client
-        .post(
-            "/accounts/login",
-            Login {
-                username: "edgar".to_owned(),
-                password: "andré-edgar".to_owned().into(),
-            },
-        )
-        .await?;
+    for _ in 0..5 {
+        let response = client
+            .post(
+                "/accounts/login",
+                Login {
+                    username: "edgar".to_owned(),
+                    password: "andré-edgar".to_owned().into(),
+                },
+            )
+            .await?;
 
-    assert_response_status!(response, StatusCode::BAD_REQUEST)?;
+        assert_response_status!(response, StatusCode::BAD_REQUEST)?;
+    }
 
     let response = client
         .post(
