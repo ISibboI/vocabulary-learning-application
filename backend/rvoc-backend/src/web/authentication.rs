@@ -91,6 +91,7 @@ pub async fn login(
                     }
 
                     // update login info
+                    trace!("Updating login info: {user_login_info:?}");
                     let username = user_login_info.name.clone();
                     let affected_rows = diesel::update(users::table)
                         .set(user_login_info)
