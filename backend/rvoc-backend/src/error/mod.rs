@@ -169,6 +169,9 @@ pub enum UserError {
 
     #[error("the username has no password (logins are disabled for this user)")]
     UserHasNoPassword,
+
+    #[error("the user's login rate limit was reached")]
+    UserLoginRateLimitReached,
 }
 
 trait RequireSendAndSync: Send + Sync {}

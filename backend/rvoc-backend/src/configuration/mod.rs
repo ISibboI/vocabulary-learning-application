@@ -73,10 +73,10 @@ pub struct Configuration {
     pub login_attempt_counting_interval: Duration,
 
     /// The maximum number of login attempts per interval specified by [`login_attempt_counting_interval`](Configuration::login_attempt_counting_interval).
-    pub max_login_attempts_per_interval: u32,
+    pub max_login_attempts_per_interval: i32,
 
     /// The maximum number of failed login attempts per interval specified by [`login_attempt_counting_interval`](Configuration::login_attempt_counting_interval).
-    pub max_failed_login_attempts_per_interval: u32,
+    pub max_failed_login_attempts_per_interval: i32,
 
     /// The base directory where wiktionary dumps are stored in.
     pub wiktionary_temporary_data_directory: PathBuf,
@@ -159,11 +159,11 @@ impl Configuration {
             )?),
             max_login_attempts_per_interval: read_env_var_with_default_as_type(
                 "MAX_LOGIN_ATTEMPTS_PER_INTERVAL",
-                10u32,
+                10,
             )?,
             max_failed_login_attempts_per_interval: read_env_var_with_default_as_type(
                 "MAX_FAILED_LOGIN_ATTEMPTS_PER_INTERVAL",
-                5u32,
+                5,
             )?,
             wiktionary_temporary_data_directory: read_env_var_with_default_as_type(
                 "WIKTIONARY_TEMPORARY_DATA_DIRECTORY",

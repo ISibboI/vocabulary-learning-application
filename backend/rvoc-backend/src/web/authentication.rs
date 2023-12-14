@@ -5,13 +5,13 @@ use axum::{
     response::{IntoResponse, Response},
     Extension, Json,
 };
-use diesel::QueryDsl;
+use chrono::Utc;
 use tracing::{info, instrument};
 use typed_session_axum::{SessionHandle, WritableSession};
 
 use crate::{
     error::{RVocError, RVocResult, UserError},
-    model::user::{password_hash::PasswordHash, username::Username},
+    model::user::{username::Username, UserLoginInfo},
 };
 
 use super::{session::RVocSessionData, WebConfiguration, WebDatabaseConnectionPool};
@@ -53,54 +53,54 @@ pub async fn login(
                     use crate::database::schema::users;
                     use diesel::ExpressionMethods;
                     use diesel::OptionalExtension;
+                    use diesel::{QueryDsl, SelectableHelper};
                     use diesel_async::RunQueryDsl;
 
                     let configuration = configuration.clone();
+                    let now = Utc::now();
 
-                    // get password hash
-                    let password_hash: String = if let Some(password_hash) = users::table
-                        .select(users::password_hash)
+                    // get user login info
+                    let Some(mut user_login_info) = users::table
+                        .select(UserLoginInfo::as_select())
                         .filter(users::name.eq(username.as_ref()))
                         .first(database_connection)
                         .await
                         .optional()?
-                    {
-                        if let Some(password_hash) = password_hash {
-                            password_hash
-                        } else {
-                            // Here the optional() returned a row, but with a null password hash.
-                            info!("User has no password: {:?}", username);
-                            return Err(UserError::UserHasNoPassword.into());
-                        }
-                    } else {
+                    else {
                         // Here the optional() returned None, i.e. no row was found.
                         info!("User not found: {:?}", username);
                         return Err(UserError::InvalidUsernamePassword.into());
                     };
 
+                    // check and update rate limit
+                    if !user_login_info.try_login_attempt(now, configuration.as_ref()) {
+                        // The user's login rate limit was reached.
+                        info!("User login rate limit reached: {:?}", username);
+                        return Err(UserError::UserLoginRateLimitReached.into());
+                    }
+
                     // verify password hash
-                    let mut password_hash = PasswordHash::from(password_hash);
-                    let verify_result =
-                        password_hash.verify(password.clone(), configuration)?;
+                    let verify_result = user_login_info
+                        .password_hash
+                        .verify(password.clone(), configuration)?;
 
                     if !verify_result.matches {
                         info!("Wrong password for user: {:?}", username);
                         return Err(UserError::InvalidUsernamePassword.into());
                     }
 
-                    // update password hash if modified
-                    if verify_result.modified {
-                        let affected_rows = diesel::update(users::table)
-                            .filter(users::name.eq(username.as_ref()))
-                            .set(users::password_hash.eq(Option::<String>::from(password_hash)))
-                            .execute(database_connection)
-                            .await?;
+                    // update login info
+                    let username = user_login_info.name.clone();
+                    let affected_rows = diesel::update(users::table)
+                        .set(user_login_info)
+                        .filter(users::name.eq(username.as_ref()))
+                        .execute(database_connection)
+                        .await?;
 
-                        if affected_rows != 1 {
-                            unreachable!(
-                                "Updated exactly one existing row, but {affected_rows} were affected"
-                            );
-                        }
+                    if affected_rows != 1 {
+                        unreachable!(
+                            "Updated exactly one existing row, but {affected_rows} were affected"
+                        );
                     }
 
                     Ok(())
