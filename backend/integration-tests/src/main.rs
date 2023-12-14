@@ -38,6 +38,8 @@ async fn main() -> anyhow::Result<()> {
         spawn(test_too_short_password()),
         spawn(test_wrong_username_login()),
         spawn(test_too_long_password_login()),
+        spawn(test_login_rate_limit()),
+        spawn(test_failed_login_rate_limit()),
     ];
     let test_amount = tasks.len();
 
@@ -373,4 +375,94 @@ async fn test_too_long_password_login() -> anyhow::Result<()> {
         .await?;
 
     assert_response_status!(response, StatusCode::BAD_REQUEST)
+}
+
+async fn test_login_rate_limit() -> anyhow::Result<()> {
+    let client = HttpClient::new().await?;
+    let response = client
+        .post(
+            "/accounts/create",
+            CreateAccount {
+                username: "alexander".to_owned(),
+                password: "abusch-abusch".to_owned().into(),
+            },
+        )
+        .await?;
+
+    assert_response_status!(response, StatusCode::CREATED)?;
+
+    let response = client
+        .post(
+            "/accounts/login",
+            Login {
+                username: "alexander".to_owned(),
+                password: "abusch-abusch".to_owned().into(),
+            },
+        )
+        .await?;
+
+    assert_response_status!(response, StatusCode::NO_CONTENT)?;
+
+    let response = client
+        .post(
+            "/accounts/login",
+            Login {
+                username: "alexander".to_owned(),
+                password: "abusch-abusch".to_owned().into(),
+            },
+        )
+        .await?;
+
+    assert_response_status!(response, StatusCode::NO_CONTENT)?;
+
+    let response = client
+        .post(
+            "/accounts/login",
+            Login {
+                username: "alexander".to_owned(),
+                password: "abusch-abusch".to_owned().into(),
+            },
+        )
+        .await?;
+
+    assert_response_status!(response, StatusCode::TOO_MANY_REQUESTS)
+}
+
+async fn test_failed_login_rate_limit() -> anyhow::Result<()> {
+    let client = HttpClient::new().await?;
+    let response = client
+        .post(
+            "/accounts/create",
+            CreateAccount {
+                username: "edgar".to_owned(),
+                password: "andré-andré".to_owned().into(),
+            },
+        )
+        .await?;
+
+    assert_response_status!(response, StatusCode::CREATED)?;
+
+    let response = client
+        .post(
+            "/accounts/login",
+            Login {
+                username: "edgar".to_owned(),
+                password: "andré-edgar".to_owned().into(),
+            },
+        )
+        .await?;
+
+    assert_response_status!(response, StatusCode::BAD_REQUEST)?;
+
+    let response = client
+        .post(
+            "/accounts/login",
+            Login {
+                username: "alexander".to_owned(),
+                password: "andré-edgar".to_owned().into(),
+            },
+        )
+        .await?;
+
+    assert_response_status!(response, StatusCode::TOO_MANY_REQUESTS)
 }
