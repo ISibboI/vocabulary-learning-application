@@ -70,7 +70,7 @@ pub async fn login(
                         } else {
                             // Here the optional() returned a row, but with a null password hash.
                             info!("User has no password: {:?}", username);
-                            return Err(UserError::InvalidUsernamePassword.into());
+                            return Err(UserError::UserHasNoPassword.into());
                         }
                     } else {
                         // Here the optional() returned None, i.e. no row was found.
