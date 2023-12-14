@@ -6,7 +6,7 @@ use axum::{
     Extension, Json,
 };
 use chrono::Utc;
-use tracing::{info, instrument};
+use tracing::{info, instrument, trace};
 use typed_session_axum::{SessionHandle, WritableSession};
 
 use crate::{
@@ -103,6 +103,7 @@ pub async fn login(
                             "Updated exactly one existing row, but {affected_rows} were affected"
                         );
                     }
+                    trace!("Updated login info for user: {:?}", username);
 
                     // only return Ok if the password matched
                     if verify_result.matches {
