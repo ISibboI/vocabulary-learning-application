@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use diesel::{deserialize::Queryable, prelude::Insertable, AsChangeset, Identifiable, Selectable};
+use tracing::trace;
 
 use crate::configuration::Configuration;
 
@@ -48,6 +49,7 @@ impl UserLoginInfo {
     /// Checks if a login attempt can be made and increments the number of login attempts if yes.
     /// Returns `true` if a login attempt can be made.
     pub fn try_login_attempt(&mut self, now: DateTime<Utc>, configuration: &Configuration) -> bool {
+        trace!("Trying login attempt with {self:?}");
         if self.can_attempt_to_login(now, configuration) {
             if self.login_attempt_count == 0 && self.failed_login_attempt_count == 0 {
                 self.next_login_attempt_count_reset =
