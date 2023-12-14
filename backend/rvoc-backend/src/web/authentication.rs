@@ -84,9 +84,10 @@ pub async fn login(
                         .password_hash
                         .verify(password.clone(), configuration)?;
 
+                    // log potential failed login attempt
                     if !verify_result.matches {
+                        user_login_info.fail_login_attempt();
                         info!("Wrong password for user: {:?}", username);
-                        return Err(UserError::InvalidUsernamePassword.into());
                     }
 
                     // update login info
@@ -103,7 +104,12 @@ pub async fn login(
                         );
                     }
 
-                    Ok(())
+                    // only return Ok if the password matched
+                    if verify_result.matches {
+                        Ok(())
+                    } else {
+                        Err(UserError::InvalidUsernamePassword.into())
+                    }
                 })
             },
             configuration.maximum_transaction_retry_count,
