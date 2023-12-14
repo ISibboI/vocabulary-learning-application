@@ -1,10 +1,12 @@
+use std::time::Duration;
+
 use anyhow::{bail, Context};
 use api_commands::{CreateAccount, Login};
 use log::{debug, error, info};
 use reqwest::StatusCode;
 use secure_string::SecureBytes;
 use simplelog::TermLogger;
-use tokio::spawn;
+use tokio::{spawn, time::sleep};
 
 use crate::util::{assert_response_status, HttpClient};
 
@@ -415,7 +417,21 @@ async fn test_login_rate_limit() -> anyhow::Result<()> {
         )
         .await?;
 
-    assert_response_status!(response, StatusCode::TOO_MANY_REQUESTS)
+    assert_response_status!(response, StatusCode::TOO_MANY_REQUESTS)?;
+
+    sleep(Duration::from_secs(10)).await;
+
+    let response = client
+        .post(
+            "/accounts/login",
+            Login {
+                username: "alexander".to_owned(),
+                password: "abusch-abusch".to_owned().into(),
+            },
+        )
+        .await?;
+
+    assert_response_status!(response, StatusCode::NO_CONTENT)
 }
 
 async fn test_failed_login_rate_limit() -> anyhow::Result<()> {
@@ -456,5 +472,19 @@ async fn test_failed_login_rate_limit() -> anyhow::Result<()> {
         )
         .await?;
 
-    assert_response_status!(response, StatusCode::TOO_MANY_REQUESTS)
+    assert_response_status!(response, StatusCode::TOO_MANY_REQUESTS)?;
+
+    sleep(Duration::from_secs(10)).await;
+
+    let response = client
+        .post(
+            "/accounts/login",
+            Login {
+                username: "edgar".to_owned(),
+                password: "andré-edgar".to_owned().into(),
+            },
+        )
+        .await?;
+
+    assert_response_status!(response, StatusCode::BAD_REQUEST)
 }
