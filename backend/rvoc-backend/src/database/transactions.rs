@@ -85,13 +85,13 @@ impl RVocAsyncDatabaseConnectionPool {
         max_retries: u64,
         isolation_level: TransactionIsolationLevel,
     ) -> Result<ReturnType, PermanentErrorType> {
-        let mut database_connection = self.implementation.get().await.map_err(|error| {
-            PermanentErrorType::permanent_error(Box::new(RVocError::DatabaseConnection {
-                source: Box::new(error),
-            }))
-        })?;
-
         for _ in 0..max_retries.saturating_add(1) {
+            let mut database_connection = self.implementation.get().await.map_err(|error| {
+                PermanentErrorType::permanent_error(Box::new(RVocError::DatabaseConnection {
+                    source: Box::new(error),
+                }))
+            })?;
+
             let transaction_result = match isolation_level {
                 TransactionIsolationLevel::Serializable => {
                     database_connection.build_transaction().serializable()

@@ -1,10 +1,12 @@
+use std::time::Duration;
+
 use anyhow::{bail, Context};
 use api_commands::{CreateAccount, Login};
 use log::{debug, error, info};
 use reqwest::StatusCode;
 use secure_string::SecureBytes;
 use simplelog::TermLogger;
-use tokio::spawn;
+use tokio::{spawn, time::sleep};
 
 use crate::util::{assert_response_status, HttpClient};
 
@@ -38,6 +40,8 @@ async fn main() -> anyhow::Result<()> {
         spawn(test_too_short_password()),
         spawn(test_wrong_username_login()),
         spawn(test_too_long_password_login()),
+        spawn(test_login_rate_limit()),
+        spawn(test_failed_login_rate_limit()),
     ];
     let test_amount = tasks.len();
 
@@ -368,6 +372,116 @@ async fn test_too_long_password_login() -> anyhow::Result<()> {
             Login {
                 username: "alois".to_owned(),
                 password: "hundhammer-hundhammer-hundhammer-hundhammer-hundhammer-hundhammer-hundhammer-hundhammer-hundhammer-hundhammer-hundhammer-hundhammer".to_owned().into(),
+            },
+        )
+        .await?;
+
+    assert_response_status!(response, StatusCode::BAD_REQUEST)
+}
+
+async fn test_login_rate_limit() -> anyhow::Result<()> {
+    let client = HttpClient::new().await?;
+    let response = client
+        .post(
+            "/accounts/create",
+            CreateAccount {
+                username: "alexander".to_owned(),
+                password: "abusch-abusch".to_owned().into(),
+            },
+        )
+        .await?;
+
+    assert_response_status!(response, StatusCode::CREATED)?;
+
+    for _ in 0..10 {
+        let response = client
+            .post(
+                "/accounts/login",
+                Login {
+                    username: "alexander".to_owned(),
+                    password: "abusch-abusch".to_owned().into(),
+                },
+            )
+            .await?;
+
+        assert_response_status!(response, StatusCode::NO_CONTENT)?;
+    }
+
+    let response = client
+        .post(
+            "/accounts/login",
+            Login {
+                username: "alexander".to_owned(),
+                password: "abusch-abusch".to_owned().into(),
+            },
+        )
+        .await?;
+
+    assert_response_status!(response, StatusCode::TOO_MANY_REQUESTS)?;
+
+    sleep(Duration::from_secs(10)).await;
+
+    let response = client
+        .post(
+            "/accounts/login",
+            Login {
+                username: "alexander".to_owned(),
+                password: "abusch-abusch".to_owned().into(),
+            },
+        )
+        .await?;
+
+    assert_response_status!(response, StatusCode::NO_CONTENT)
+}
+
+async fn test_failed_login_rate_limit() -> anyhow::Result<()> {
+    let client = HttpClient::new().await?;
+    let response = client
+        .post(
+            "/accounts/create",
+            CreateAccount {
+                username: "edgar".to_owned(),
+                password: "andré-andré".to_owned().into(),
+            },
+        )
+        .await?;
+
+    assert_response_status!(response, StatusCode::CREATED)?;
+
+    for _ in 0..5 {
+        let response = client
+            .post(
+                "/accounts/login",
+                Login {
+                    username: "edgar".to_owned(),
+                    password: "andré-edgar".to_owned().into(),
+                },
+            )
+            .await?;
+
+        assert_response_status!(response, StatusCode::BAD_REQUEST)?;
+    }
+
+    let response = client
+        .post(
+            "/accounts/login",
+            Login {
+                username: "edgar".to_owned(),
+                password: "andré-edgar".to_owned().into(),
+            },
+        )
+        .await?;
+
+    assert_response_status!(response, StatusCode::TOO_MANY_REQUESTS)?;
+
+    sleep(Duration::from_secs(10)).await;
+
+    let response = client
+        .post(
+            "/accounts/login",
+            Login {
+                username: "edgar".to_owned(),
+                password: "andré-edgar".to_owned().into(),
             },
         )
         .await?;

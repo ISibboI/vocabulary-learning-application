@@ -69,6 +69,15 @@ pub struct Configuration {
     /// If more tries happen than this number, the request will fail.
     pub maximum_session_id_generation_retry_count: u32,
 
+    /// The duration after which the number of login attempts and failed login attempts will be reset.
+    pub login_attempt_counting_interval: Duration,
+
+    /// The maximum number of login attempts per interval specified by [`login_attempt_counting_interval`](Configuration::login_attempt_counting_interval).
+    pub max_login_attempts_per_interval: i32,
+
+    /// The maximum number of failed login attempts per interval specified by [`login_attempt_counting_interval`](Configuration::login_attempt_counting_interval).
+    pub max_failed_login_attempts_per_interval: i32,
+
     /// The base directory where wiktionary dumps are stored in.
     pub wiktionary_temporary_data_directory: PathBuf,
 
@@ -97,11 +106,11 @@ impl Configuration {
             opentelemetry_url: read_optional_env_var("OPENTELEMETRY_URL")?,
             shutdown_timeout: Duration::seconds(read_env_var_with_default_as_type(
                 "RVOC_SHUTDOWN_TIMEOUT",
-                30i64,
+                30,
             )?),
             job_queue_poll_interval: Duration::seconds(read_env_var_with_default_as_type(
                 "JOB_QUEUE_POLL_INTERVAL_SECONDS",
-                60i64,
+                60,
             )?),
             maximum_transaction_retry_count: read_env_var_with_default_as_type(
                 "MAXIMUM_TRANSACTION_RETRY_COUNT",
@@ -144,6 +153,18 @@ impl Configuration {
                 "MAXIMUM_SESSION_ID_GENERATION_RETRY_COUNT",
                 10u32,
             )?,
+            login_attempt_counting_interval: Duration::seconds(read_env_var_with_default_as_type(
+                "LOGIN_ATTEMPT_COUNTING_INTERVAL_SECONDS",
+                300u32,
+            )?),
+            max_login_attempts_per_interval: read_env_var_with_default_as_type(
+                "MAX_LOGIN_ATTEMPTS_PER_INTERVAL",
+                10,
+            )?,
+            max_failed_login_attempts_per_interval: read_env_var_with_default_as_type(
+                "MAX_FAILED_LOGIN_ATTEMPTS_PER_INTERVAL",
+                5,
+            )?,
             wiktionary_temporary_data_directory: read_env_var_with_default_as_type(
                 "WIKTIONARY_TEMPORARY_DATA_DIRECTORY",
                 "data/wiktionary_data",
@@ -152,13 +173,11 @@ impl Configuration {
                 "WIKTIONARY_DUMP_INSERTION_BATCH_SIZE",
                 1000usize,
             )?,
-            wiktionary_update_interval: Duration::hours(read_env_var_with_default_as_type::<i64>(
+            wiktionary_update_interval: Duration::hours(read_env_var_with_default_as_type(
                 "WIKTIONARY_POLL_INTERVAL_HOURS",
                 24,
             )?),
-            delete_expired_sessions_interval: Duration::hours(read_env_var_with_default_as_type::<
-                i64,
-            >(
+            delete_expired_sessions_interval: Duration::hours(read_env_var_with_default_as_type(
                 "DELETE_EXPIRED_SESSIONS_INTERVAL_HOURS",
                 24,
             )?),
@@ -217,6 +236,9 @@ impl Configuration {
             password_argon2id_minimum_iterations: 2,
             password_argon2id_parallelism: 1,
             maximum_session_id_generation_retry_count: 10,
+            login_attempt_counting_interval: Duration::seconds(10),
+            max_login_attempts_per_interval: 10,
+            max_failed_login_attempts_per_interval: 5,
             wiktionary_temporary_data_directory: "wiktionary_data".into(),
             wiktionary_dump_insertion_batch_size: 1000,
             wiktionary_update_interval: Duration::hours(24),

@@ -109,6 +109,8 @@ impl UserError {
             UserError::UsernameExists { .. } => StatusCode::CONFLICT,
             UserError::UsernameDoesNotExist { .. } => StatusCode::BAD_REQUEST,
             UserError::InvalidUsernamePassword => StatusCode::BAD_REQUEST,
+            UserError::UserHasNoPassword => StatusCode::BAD_REQUEST,
+            UserError::UserLoginRateLimitReached => StatusCode::TOO_MANY_REQUESTS,
         }
     }
 }

@@ -1,6 +1,6 @@
 use crate::{configuration::Configuration, error::RVocResult};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Username {
     name: String,
 }
@@ -22,5 +22,11 @@ impl AsRef<str> for Username {
 impl From<Username> for String {
     fn from(value: Username) -> Self {
         value.name
+    }
+}
+
+impl From<String> for Username {
+    fn from(name: String) -> Self {
+        Self { name }
     }
 }

@@ -1,6 +1,6 @@
 use crate::{
     error::{RVocError, RVocResult, UserError},
-    model::user::{password_hash::PasswordHash, username::Username, User},
+    model::user::{password_hash::PasswordHash, username::Username, NewUser},
 };
 use api_commands::CreateAccount;
 use axum::{http::StatusCode, Extension, Json};
@@ -21,10 +21,7 @@ pub async fn create_account(
     let CreateAccount { username, password } = create_account;
     let username = Username::new(username, &configuration)?;
 
-    let user = User {
-        name: username,
-        password_hash: PasswordHash::new(password, &configuration)?,
-    };
+    let user = NewUser::new(username, PasswordHash::new(password, &configuration)?);
 
     database_connection_pool
         .execute_transaction::<_, RVocError>(
