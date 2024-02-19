@@ -168,5 +168,6 @@ pub enum UserError {
     InvalidUsernamePassword,
 }
 
+#[allow(dead_code)]
 trait RequireSendAndSync: Send + Sync {}
 impl RequireSendAndSync for RVocError {}
