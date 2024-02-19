@@ -13,7 +13,7 @@ debug = false
 [workspace.package]
 version = "0.0.1"
 edition = "2021"
-rust-version = "1.58.1"
+rust-version = "1.76.0"
 publish = false
 
 [workspace.dependencies]
