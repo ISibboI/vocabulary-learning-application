@@ -211,15 +211,15 @@ impl SessionStoreConnector<RVocSessionData> for RVocSessionStoreConnector {
                 Err(typed_session::Error::UpdatedSessionDoesNotExist)
             }
             Err(TryInsertSessionError::PermanentTransactionError(error)) => {
-                Err(RVocError::UpdateSession { source: error })
-                    .map_err(typed_session::Error::SessionStoreConnector)
+                Err(typed_session::Error::SessionStoreConnector(
+                    RVocError::UpdateSession { source: error },
+                ))
             }
-            Err(error @ TryInsertSessionError::TooManyTemporaryTransactionErrors { .. }) => {
-                Err(RVocError::UpdateSession {
+            Err(error @ TryInsertSessionError::TooManyTemporaryTransactionErrors { .. }) => Err(
+                typed_session::Error::SessionStoreConnector(RVocError::UpdateSession {
                     source: Box::new(error),
-                })
-                .map_err(typed_session::Error::SessionStoreConnector)
-            }
+                }),
+            ),
         }
     }
 
