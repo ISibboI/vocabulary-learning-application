@@ -64,6 +64,7 @@ jobs:
           "Apache-2.0 OR BSL-1.0 OR MIT"
           "MIT AND BSD-3-Clause"
           "(MIT OR Apache-2.0) AND Unicode-DFS-2016"
+          "Apache-2.0 OR ISC OR MIT"
           ^api_commands
           ^rvoc-backend
           ^integration-tests
