@@ -44,7 +44,7 @@ diesel-async = { version = "0.4.1", features = ["postgres", "deadpool"] }
 wiktionary-dump-parser = "0.6.0"
 
 # convert enum variants from and to string
-strum = { version = "0.25", features = ["derive"] }
+strum = { version = "0.26", features = ["derive"] }
 
 # date and time
 chrono = "0.4.26"
