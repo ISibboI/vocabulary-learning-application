@@ -196,7 +196,7 @@ async fn reserve_job(
                         };
 
                         if job.start_time - job.scheduled_time
-                            > configuration.job_queue_poll_interval + Duration::seconds(10)
+                            > configuration.job_queue_poll_interval + Duration::try_seconds(10).unwrap()
                         {
                             warn!(
                                 "Job started with a delay larger than the job queue poll interval: {}",

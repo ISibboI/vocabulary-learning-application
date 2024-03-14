@@ -85,84 +85,88 @@ pub struct Configuration {
 impl Configuration {
     /// Read the configuration values from environment variables.
     pub fn from_environment() -> RVocResult<Self> {
-        let result = Self {
-            integration_test_mode: read_env_var_with_default_as_type(
-                "RVOC_INTEGRATION_TEST_MODE",
-                false,
-            )?,
-            postgres_url: read_env_var_with_default_as_type(
-                "POSTGRES_RVOC_URL",
-                "postgres://rvoc@localhost/rvoc",
-            )?,
-            opentelemetry_url: read_optional_env_var("OPENTELEMETRY_URL")?,
-            shutdown_timeout: Duration::seconds(read_env_var_with_default_as_type(
-                "RVOC_SHUTDOWN_TIMEOUT",
-                30i64,
-            )?),
-            job_queue_poll_interval: Duration::seconds(read_env_var_with_default_as_type(
-                "JOB_QUEUE_POLL_INTERVAL_SECONDS",
-                60i64,
-            )?),
-            maximum_transaction_retry_count: read_env_var_with_default_as_type(
-                "MAXIMUM_TRANSACTION_RETRY_COUNT",
-                10u64,
-            )?,
-            api_listen_address: read_env_var_with_default_as_type(
-                "API_LISTEN_ADDRESS",
-                SocketAddr::from(([0, 0, 0, 0], 8093)),
-            )?,
-            minimum_username_length: read_env_var_with_default_as_type(
-                "MINIMUM_USERNAME_LENGTH",
-                3usize,
-            )?,
-            maximum_username_length: read_env_var_with_default_as_type(
-                "MAXIMUM_USERNAME_LENGTH",
-                50usize,
-            )?,
-            minimum_password_length: read_env_var_with_default_as_type(
-                "MINIMUM_PASSWORD_LENGTH",
-                8usize,
-            )?,
-            maximum_password_length: read_env_var_with_default_as_type(
-                "MAXIMUM_PASSWORD_LENGTH",
-                100usize,
-            )?,
-            password_pepper: read_env_var_as_type("PASSWORD_PEPPER")?,
-            password_argon2id_minimum_memory_kib: read_env_var_with_default_as_type(
-                "PASSWORD_ARGON2ID_MINIMUM_MEMORY_KIB",
-                19456u32,
-            )?,
-            password_argon2id_minimum_iterations: read_env_var_with_default_as_type(
-                "PASSWORD_ARGON2ID_MINIMUM_ITERATIONS",
-                2u32,
-            )?,
-            password_argon2id_parallelism: read_env_var_with_default_as_type(
-                "PASSWORD_ARGON2ID_PARALLELISM",
-                1u32,
-            )?,
-            maximum_session_id_generation_retry_count: read_env_var_with_default_as_type(
-                "MAXIMUM_SESSION_ID_GENERATION_RETRY_COUNT",
-                10u32,
-            )?,
-            wiktionary_temporary_data_directory: read_env_var_with_default_as_type(
-                "WIKTIONARY_TEMPORARY_DATA_DIRECTORY",
-                "data/wiktionary_data",
-            )?,
-            wiktionary_dump_insertion_batch_size: read_env_var_with_default_as_type(
-                "WIKTIONARY_DUMP_INSERTION_BATCH_SIZE",
-                1000usize,
-            )?,
-            wiktionary_update_interval: Duration::hours(read_env_var_with_default_as_type::<i64>(
-                "WIKTIONARY_POLL_INTERVAL_HOURS",
-                24,
-            )?),
-            delete_expired_sessions_interval: Duration::hours(read_env_var_with_default_as_type::<
-                i64,
-            >(
-                "DELETE_EXPIRED_SESSIONS_INTERVAL_HOURS",
-                24,
-            )?),
-        };
+        let result =
+            Self {
+                integration_test_mode: read_env_var_with_default_as_type(
+                    "RVOC_INTEGRATION_TEST_MODE",
+                    false,
+                )?,
+                postgres_url: read_env_var_with_default_as_type(
+                    "POSTGRES_RVOC_URL",
+                    "postgres://rvoc@localhost/rvoc",
+                )?,
+                opentelemetry_url: read_optional_env_var("OPENTELEMETRY_URL")?,
+                shutdown_timeout: Duration::try_seconds(read_env_var_with_default_as_type(
+                    "RVOC_SHUTDOWN_TIMEOUT",
+                    30i64,
+                )?)
+                .unwrap(),
+                job_queue_poll_interval: Duration::try_seconds(read_env_var_with_default_as_type(
+                    "JOB_QUEUE_POLL_INTERVAL_SECONDS",
+                    60i64,
+                )?)
+                .unwrap(),
+                maximum_transaction_retry_count: read_env_var_with_default_as_type(
+                    "MAXIMUM_TRANSACTION_RETRY_COUNT",
+                    10u64,
+                )?,
+                api_listen_address: read_env_var_with_default_as_type(
+                    "API_LISTEN_ADDRESS",
+                    SocketAddr::from(([0, 0, 0, 0], 8093)),
+                )?,
+                minimum_username_length: read_env_var_with_default_as_type(
+                    "MINIMUM_USERNAME_LENGTH",
+                    3usize,
+                )?,
+                maximum_username_length: read_env_var_with_default_as_type(
+                    "MAXIMUM_USERNAME_LENGTH",
+                    50usize,
+                )?,
+                minimum_password_length: read_env_var_with_default_as_type(
+                    "MINIMUM_PASSWORD_LENGTH",
+                    8usize,
+                )?,
+                maximum_password_length: read_env_var_with_default_as_type(
+                    "MAXIMUM_PASSWORD_LENGTH",
+                    100usize,
+                )?,
+                password_pepper: read_env_var_as_type("PASSWORD_PEPPER")?,
+                password_argon2id_minimum_memory_kib: read_env_var_with_default_as_type(
+                    "PASSWORD_ARGON2ID_MINIMUM_MEMORY_KIB",
+                    19456u32,
+                )?,
+                password_argon2id_minimum_iterations: read_env_var_with_default_as_type(
+                    "PASSWORD_ARGON2ID_MINIMUM_ITERATIONS",
+                    2u32,
+                )?,
+                password_argon2id_parallelism: read_env_var_with_default_as_type(
+                    "PASSWORD_ARGON2ID_PARALLELISM",
+                    1u32,
+                )?,
+                maximum_session_id_generation_retry_count: read_env_var_with_default_as_type(
+                    "MAXIMUM_SESSION_ID_GENERATION_RETRY_COUNT",
+                    10u32,
+                )?,
+                wiktionary_temporary_data_directory: read_env_var_with_default_as_type(
+                    "WIKTIONARY_TEMPORARY_DATA_DIRECTORY",
+                    "data/wiktionary_data",
+                )?,
+                wiktionary_dump_insertion_batch_size: read_env_var_with_default_as_type(
+                    "WIKTIONARY_DUMP_INSERTION_BATCH_SIZE",
+                    1000usize,
+                )?,
+                wiktionary_update_interval: Duration::try_hours(
+                    read_env_var_with_default_as_type::<i64>("WIKTIONARY_POLL_INTERVAL_HOURS", 24)?,
+                )
+                .unwrap(),
+                delete_expired_sessions_interval: Duration::try_hours(
+                    read_env_var_with_default_as_type::<i64>(
+                        "DELETE_EXPIRED_SESSIONS_INTERVAL_HOURS",
+                        24,
+                    )?,
+                )
+                .unwrap(),
+            };
 
         if result.shutdown_timeout < Duration::zero() {
             return Err(RVocError::NegativeShutdownTimeout);
@@ -204,8 +208,8 @@ impl Configuration {
             integration_test_mode: true,
             postgres_url: "postgres://rvoc@localhost/rvoc".into(),
             opentelemetry_url: None,
-            shutdown_timeout: Duration::seconds(30),
-            job_queue_poll_interval: Duration::seconds(60),
+            shutdown_timeout: Duration::try_seconds(30).unwrap(),
+            job_queue_poll_interval: Duration::try_seconds(60).unwrap(),
             maximum_transaction_retry_count: 10u64,
             api_listen_address: SocketAddr::from(([0, 0, 0, 0], 8093)),
             minimum_username_length: 3,
@@ -219,8 +223,8 @@ impl Configuration {
             maximum_session_id_generation_retry_count: 10,
             wiktionary_temporary_data_directory: "wiktionary_data".into(),
             wiktionary_dump_insertion_batch_size: 1000,
-            wiktionary_update_interval: Duration::hours(24),
-            delete_expired_sessions_interval: Duration::hours(24),
+            wiktionary_update_interval: Duration::try_hours(24).unwrap(),
+            delete_expired_sessions_interval: Duration::try_hours(24).unwrap(),
         }
     }
 
